@@ -97,59 +97,59 @@ def initialize_board(board_config):
             
             # Verificar si hay una transición arriba
             if board_info[i][j][0] == '0':
-                G.add_edge((i, j), (i - 1, j), weight = 1, type='path')
+                add_path(G, i, j, j - 1, j)
             else:
                 # Verificar si hay una puerta
                 if (i, j) in doors and doors[(i, j)] == (i - 1, j):
                     # Agregar puerta
-                    G.add_edge((i, j), (i - 1, j), weight = 2, type='door')
+                    add_door(G, i, j, i - 1, j)
                 # Si no hay puerta, agregar pared
                 elif i != 0 and not G.has_edge((i, j), (i - 1, j)):
-                    G.add_edge((i, j), (i - 1, j), weight = 5, type='wall', life=2)
+                    add_wall(G, i, j, i - 1, j)
 
 
             # Verificar si hay una transición a la izquierda
             if board_info[i][j][1] == '0':
-                G.add_edge((i, j), (i, j - 1), weight = 1, type='path')
+                add_path(G, i, j, i, j - 1)
             else:
                 # Verificar si hay una puerta
                 if (i, j) in doors and doors[(i, j)] == (i, j - 1):
                     # Agregar puerta
-                    G.add_edge((i, j), (i, j - 1), weight = 2, type='door')
+                    add_door(G, i, j, i, j - 1)
                 # Si no hay puerta, agregar pared
                 elif j != 0 and not G.has_edge((i, j), (i, j - 1)):
-                    G.add_edge((i, j), (i, j - 1), weight = 5, type='wall', life=2)
+                    add_wall(G, i, j, i, j - 1)
 
             # Verificar si hay una transición abajo
             if board_info[i][j][2] == '0':
-                G.add_edge((i, j), (i + 1, j), weight = 1, type='path')
+                add_path(G, i, j, i + 1, j)
             else:
                 # Verificar si hay una puerta
                 if (i, j) in doors and doors[(i, j)] == (i + 1, j):
                     # Agregar puerta
-                    G.add_edge((i, j), (i + 1, j), weight = 2, type='door')
+                    add_door(G, i, j, i + 1, j)
                 # Si no hay puerta, agregar pared
                 elif i != len(board_info) - 1 and not G.has_edge((i, j), (i + 1, j)):
-                    G.add_edge((i, j), (i + 1, j), weight = 5, type='wall', life=2)
+                    add_wall(G, i, j, i + 1, j)
 
             # Verificar si hay una transición a la derecha
             if board_info[i][j][3] == '0':
-                G.add_edge((i, j), (i, j + 1), weight = 1, type='path')
+                add_path(G, i, j, i, j + 1)
             else:
                 # Verificar si hay una puerta
                 if (i, j) in doors and doors[(i, j)] == (i, j + 1):
                     # Agregar puerta
-                    G.add_edge((i, j), (i, j + 1), weight = 2, type='door')
+                    add_door(G, i, j, i, j + 1)
                 # Si no hay puerta, agregar pared
                 elif j != len(board_info[i]) - 1 and not G.has_edge((i, j), (i, j + 1)):
-                    G.add_edge((i, j), (i, j + 1), weight = 5, type='wall', life=2)
+                    add_wall(G, i, j, i, j + 1)
 
     # Agregar los puntos de interés
     # None -> No es un punto de interés
     # True -> Hay una víctima
     # False -> Es una falsa alarma
     for poi in board_config['points_of_interest']:
-        G.nodes[(int(poi[0]) - 1, int(poi[1]) - 1)]['POI'] = True if poi[2] == 'v' else False
+        add_POI(G, int(poi[0]) - 1, int(poi[1]) - 1, poi[2] == 'v')
 
     # Agregar los indicadores de fuego
     # 0 -> No hay fuego
@@ -297,7 +297,7 @@ def plot_graph(G):
 
 # ----------------- Funciones de modelado -----------------
 
-def add_path(G, y1, x2, y2):
+def add_path(G, x1, y1, x2, y2):
     """
     Agregar un camino al grafo
     """
@@ -332,6 +332,18 @@ def add_door(G, x1, y1, x2, y2):
 
     # Agregar la puerta al grafo
     G.add_edge((x1, y1), (x2, y2), type='door', weight=2)
+
+def add_POI(G, x, y, is_victim):
+    """
+    Agregar un punto de interés al grafo
+    """
+
+    # Verificar si la celda existe
+    if (x, y) not in G.nodes:
+        return
+    
+    # Agregar el punto de interés
+    G.nodes[(x, y)]['POI'] = is_victim
 
 def add_fire(G, x, y):
     """
@@ -461,15 +473,4 @@ def propagate_explosion(G, x, y):
 G = initialize_board(board_config)
 
 print("-- Inicial")
-plot_graph(G)
-
-
-print("-- Primera explosión en (2, 4)")
-
-ignite_cell(G, 2, 4)
-plot_graph(G)
-
-print("-- Segunda explosión en (2, 4)")
-
-ignite_cell(G, 2, 4)
 plot_graph(G)
