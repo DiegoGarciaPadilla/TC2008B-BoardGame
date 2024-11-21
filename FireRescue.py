@@ -97,7 +97,7 @@ def initialize_board(board_config):
             
             # Verificar si hay una transición arriba
             if board_info[i][j][0] == '0':
-                add_path(G, i, j, j - 1, j)
+                add_path(G, i, j, i - 1, j)
             else:
                 # Verificar si hay una puerta
                 if (i, j) in doors and doors[(i, j)] == (i - 1, j):
@@ -467,10 +467,41 @@ def propagate_explosion(G, x, y):
                 current_x, current_y = next_x, next_y
                 continue
 
+def shortest_path(G, start, end):
+    """
+    Encontrar el camino más corto entre dos nodos con el algoritmo de Dijkstra
+    """
+
+    # Verificar si los nodos existen
+    if start not in G.nodes or end not in G.nodes:
+        return None
+
+    # Calcular el camino más corto
+    path = nx.shortest_path(G, source=start, target=end, weight='weight')
+
+    # Calcula el peso total del camino
+    total_weight = 0
+    for i in range(len(path) - 1):
+        total_weight += G.get_edge_data(path[i], path[i + 1])['weight']
+
+    # Crear un diccionario con la información del camino más corto
+    shortest = {}
+    shortest['path'] = path
+    shortest['total_weight'] = total_weight
+
+
+    return shortest
+
 # ----------------- Simulación -----------------
 
 # Inicializar el tablero
 G = initialize_board(board_config)
 
 print("-- Inicial")
-plot_graph(G)
+# plot_graph(G)
+
+# Calcula el camino más corto entre dos celdas
+shortest = shortest_path(G, (3, 7), (4, 7))
+
+print("-- Camino más corto")
+print(shortest)
