@@ -432,9 +432,15 @@ def ignite_cell(G, x, y):
 
         # Verificar si hay humo en los vecinos
         for neighbor in neighbors:
-            # Verificar si hay humo y no hay una pared bloqueante
+            # Verificar si hay humo y no hay una pared bloqueante 
             if G.nodes[neighbor]['fire'] == 1 and G.get_edge_data((x, y), neighbor)['type'] != 'wall':
-                ignite_cell(G, neighbor[0], neighbor[1])  # Convertir humo en fuego recursivamente
+                if G.nodes[neighbor]['fire'] == 2 and G.get_edge_data((x, y), neighbor)['type'] != 'wall':
+                    # Verificar si hay una puerta y si está abierta
+                    if G.get_edge_data((x, y), neighbor)['type'] == 'door' and is_door_open(G, x, y, neighbor[0], neighbor[1]):
+                        ignite_cell(G, neighbor[0], neighbor[1])  # Convertir humo en fuego recursivamente
+                    # Si no hay puerta, verificar si hay un camino
+                    elif G.get_edge_data((x, y), neighbor)['type'] == 'path':
+                        ignite_cell(G, neighbor[0], neighbor[1])  # Convertir humo en fuego recursivamente
 
     # Verificar si hay fuego (Explosión)
     elif G.nodes[(x, y)]['fire'] == 2:
@@ -480,7 +486,7 @@ def propagate_explosion(G, x, y):
                 break  # Detener propagación en esta dirección
 
             # Si hay una puerta cerrada
-            if edge_data['type'] == 'door':
+            if edge_data['type'] == 'door' and edge_data['weight'] == 2:
                 # La puerta es destruida y convertida en un camino
                 edge_data['type'] = 'path'
                 edge_data['weight'] = 1
@@ -508,7 +514,12 @@ def solve_smoke(G):
             for neighbor in G.adj[node]:
                 # Verificar si hay fuego en los vecinos y no hay una pared bloqueante
                 if G.nodes[neighbor]['fire'] == 2 and G.get_edge_data(node, neighbor)['type'] != 'wall':
-                    add_fire(G, node[0], node[1])
+                    # Verificar si hay una puerta y si está abierta
+                    if G.get_edge_data(node, neighbor)['type'] == 'door' and is_door_open(G, node[0], node[1], neighbor[0], neighbor[1]):
+                        add_fire(G, node[0], node[1])
+                    # Si no hay puerta, verificar si hay un camino
+                    elif G.get_edge_data(node, neighbor)['type'] == 'path':
+                        add_fire(G, node[0], node[1])
 
 def shortest_path(G, start, end):
     """
@@ -535,6 +546,53 @@ def shortest_path(G, start, end):
 
     return shortest
 
+def open_door(G, x1, y1, x2, y2):
+    """
+    Abrir una puerta
+    """
+
+    # Verificar si las celdas existen
+    if (x1, y1) not in G.nodes or (x2, y2) not in G.nodes:
+        return 
+
+    # Verificar si hay una puerta cerrada
+    if G.get_edge_data((x1, y1), (x2, y2))['type'] == 'door' and G.get_edge_data((x1, y1), (x2, y2))['weight'] == 2:
+        # Abrir la puerta
+        G[(x1, y1)][(x2, y2)]['weight'] = 1
+    else:
+        print("No hay una puerta cerrada en esa posición")
+
+def close_door(G, x1, y1, x2, y2):
+    """
+    Cerrar una puerta
+    """
+
+    # Verificar si las celdas existen
+    if (x1, y1) not in G.nodes or (x2, y2) not in G.nodes:
+        return 
+
+    # Verificar si hay una puerta abierta
+    if G.get_edge_data((x1, y1), (x2, y2))['type'] == 'door' and G.get_edge_data((x1, y1), (x2, y2))['weight'] == 1:
+        # Cerrar la puerta
+        G[(x1, y1)][(x2, y2)]['weight'] = 2
+    else:
+        print("No hay una puerta abierta en esa posición")
+
+def is_door_open(G, x1, y1, x2, y2):
+    """
+    Verificar si una puerta está abierta
+    """
+
+    # Verificar si las celdas existen
+    if (x1, y1) not in G.nodes or (x2, y2) not in G.nodes:
+        return False
+
+    # Verificar si hay una puerta abierta
+    if G.get_edge_data((x1, y1), (x2, y2))['type'] == 'door' and G.get_edge_data((x1, y1), (x2, y2))['weight'] == 1:
+        return True
+    else:
+        return False
+
 # ----------------- Simulación -----------------
 
 # Inicializar el tablero
@@ -543,23 +601,17 @@ G = initialize_board(board_config)
 print("-- Inicial")
 plot_graph(G, title='Tablero inicial')
 
-# Agregar humo 
 
-add_smoke(G, 3, 2)
-add_smoke(G, 4, 2)
+# Agregar humo y abrir puertas
+
+add_smoke(G, 0, 2)
+add_smoke(G, 0, 3)
+open_door(G, 0, 2, 0, 3)
 
 print("-- Humo")
 plot_graph(G, title='Tablero con humo')
 
-# Extinción de fuego
-
-extinguish(G, 3, 2)
-
-print("-- Fuego extinguido en (3, 2)")
-plot_graph(G, title='Tablero con fuego extinguido en (3, 2)')   
-
 # Resolver humo
-
 solve_smoke(G)
 
 print("-- Humo resuelto")
