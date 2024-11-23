@@ -64,7 +64,8 @@ board_config = read_board_config()
 
 def initialize_board(board_config):
     """
-    Inicializa el tablero como un grafo usando la librería NetworkX
+    Inicializa el tablero como un grafo usando NetworkX.
+    Maneja correctamente las conexiones entre nodos exteriores e interiores.
     """
 
     # Crear un grafo vacío
@@ -85,6 +86,7 @@ def initialize_board(board_config):
     doors = {}
     for door in board_config['doors']:
         doors[(int(door[0]), int(door[1]))] = (int(door[2]), int(door[3]))
+        doors[(int(door[2]), int(door[3]))] = (int(door[0]), int(door[1]))  # Puerta bidireccional
 
     # Agregar nodos para cada celda del tablero expandido
     for i in range(rows + 2):
@@ -97,51 +99,77 @@ def initialize_board(board_config):
                 G.add_node((i, j), fire=0, POI=None, isEntryPoint=False, type='interior')
 
     # Crear las conexiones del tablero expandido
-    for i in range(1, rows + 1):
-        for j in range(1, cols + 1):
-            # Verificar las transiciones (TLDR - Top, Left, Down, Right)
-            if expanded_board[i][j][0] == '0':  # Arriba
-                add_path(G, i, j, i - 1, j)
-            elif (i, j) in doors and doors[(i, j)] == (i - 1, j):
-                add_door(G, i, j, i - 1, j)
-            elif i > 0 and not G.has_edge((i, j), (i - 1, j)):
-                add_wall(G, i, j, i - 1, j)
-
-            if expanded_board[i][j][1] == '0':  # Izquierda
-                add_path(G, i, j, i, j - 1)
-            elif (i, j) in doors and doors[(i, j)] == (i, j - 1):
-                add_door(G, i, j, i, j - 1)
-            elif j > 0 and not G.has_edge((i, j), (i, j - 1)):
-                add_wall(G, i, j, i, j - 1)
-
-            if expanded_board[i][j][2] == '0':  # Abajo
-                add_path(G, i, j, i + 1, j)
-            elif (i, j) in doors and doors[(i, j)] == (i + 1, j):
-                add_door(G, i, j, i + 1, j)
-            elif i < rows + 1 and not G.has_edge((i, j), (i + 1, j)):
-                add_wall(G, i, j, i + 1, j)
-
-            if expanded_board[i][j][3] == '0':  # Derecha
-                add_path(G, i, j, i, j + 1)
-            elif (i, j) in doors and doors[(i, j)] == (i, j + 1):
-                add_door(G, i, j, i, j + 1)
-            elif j < cols + 1 and not G.has_edge((i, j), (i, j + 1)):
-                add_wall(G, i, j, i, j + 1)
-
-    # Conectar nodos exteriores entre sí
     for i in range(rows + 2):
         for j in range(cols + 2):
-            if G.nodes[(i, j)]['type'] == 'exterior':
-                neighbors = [
-                    (i - 1, j),  # Arriba
-                    (i + 1, j),  # Abajo
-                    (i, j - 1),  # Izquierda
-                    (i, j + 1)   # Derecha
-                ]
-                for neighbor in neighbors:
-                    if neighbor in G.nodes and G.nodes[neighbor]['type'] == 'exterior':
-                        if not G.has_edge((i, j), neighbor):
-                            G.add_edge((i, j), neighbor, weight=1, type='path')
+            current_cell = expanded_board[i][j] if 0 < i < rows + 1 and 0 < j < cols + 1 else None
+
+            # Procesar las conexiones para cada dirección
+            # Arriba
+            if i > 0:
+                neighbor_cell = expanded_board[i - 1][j] if i - 1 > 0 else None
+                if (i, j) in doors and doors[(i, j)] == (i - 1, j):
+                    add_door(G, i, j, i - 1, j)  # Puerta
+                elif current_cell and neighbor_cell:
+                    if current_cell[0] == '1' or neighbor_cell[2] == '1':
+                        add_wall(G, i, j, i - 1, j)  # Muro
+                    else:
+                        add_path(G, i, j, i - 1, j)  # Camino
+                elif not G.has_edge((i, j), (i - 1, j)):
+                    add_wall(G, i, j, i - 1, j)  # Muro por defecto
+
+            # Izquierda
+            if j > 0:
+                neighbor_cell = expanded_board[i][j - 1] if j - 1 > 0 else None
+                if (i, j) in doors and doors[(i, j)] == (i, j - 1):
+                    add_door(G, i, j, i, j - 1)  # Puerta
+                elif current_cell and neighbor_cell:
+                    if current_cell[1] == '1' or neighbor_cell[3] == '1':
+                        add_wall(G, i, j, i, j - 1)  # Muro
+                    else:
+                        add_path(G, i, j, i, j - 1)  # Camino
+                elif not G.has_edge((i, j), (i, j - 1)):
+                    add_wall(G, i, j, i, j - 1)  # Muro por defecto
+
+            # Abajo
+            if i < rows + 1:
+                neighbor_cell = expanded_board[i + 1][j] if i + 1 <= rows else None
+                if (i, j) in doors and doors[(i, j)] == (i + 1, j):
+                    add_door(G, i, j, i + 1, j)  # Puerta
+                elif current_cell and neighbor_cell:
+                    if current_cell[2] == '1' or neighbor_cell[0] == '1':
+                        add_wall(G, i, j, i + 1, j)  # Muro
+                    else:
+                        add_path(G, i, j, i + 1, j)  # Camino
+                elif not G.has_edge((i, j), (i + 1, j)):
+                    add_wall(G, i, j, i + 1, j)  # Muro por defecto
+
+            # Derecha
+            if j < cols + 1:
+                neighbor_cell = expanded_board[i][j + 1] if j + 1 <= cols else None
+                if (i, j) in doors and doors[(i, j)] == (i, j + 1):
+                    add_door(G, i, j, i, j + 1)  # Puerta
+                elif current_cell and neighbor_cell:
+                    if current_cell[3] == '1' or neighbor_cell[1] == '1':
+                        add_wall(G, i, j, i, j + 1)  # Muro
+                    else:
+                        add_path(G, i, j, i, j + 1)  # Camino
+                elif not G.has_edge((i, j), (i, j + 1)):
+                    add_wall(G, i, j, i, j + 1)  # Muro por defecto
+    
+    # Conectar nodos exteriores entre sí
+    for node in G.nodes:
+        if G.nodes[node]['type'] == 'exterior':
+            for neighbor in G.adj[node]:
+                # Verificar si ambos nodos son exteriores
+                if G.nodes[neighbor]['type'] == 'exterior':
+                    # Asegurarse de que la conexión sea un camino
+                    if not G.has_edge(node, neighbor):
+                        G.add_edge(node, neighbor, weight=1, type='path')
+                    elif G[node][neighbor].get('type') != 'path':
+                        # Sobreescribir cualquier conexión incorrecta con un camino
+                        G[node][neighbor]['type'] = 'path'
+                        G[node][neighbor]['weight'] = 1
+
 
     # Configurar puntos de interés y fuego inicial
     for poi in board_config['points_of_interest']:
@@ -159,7 +187,7 @@ def initialize_board(board_config):
 
 def plot_graph(G, title='Flash Point: Fire Rescue'):
     """
-    Graficar el grafo con Plotly
+    Graficar el grafo con Plotly, mostrando las conexiones de los nodos al hacer hover.
     """
 
     # Definir las posiciones de los nodos como una cuadrícula
@@ -248,12 +276,16 @@ def plot_graph(G, title='Flash Point: Fire Rescue'):
             edge_type = edge_data.get('type', 'unknown')
             adyacentes.append(f'{neighbor}: {edge_type}')
 
+        # Agregar el número de conexiones (grados del nodo)
+        num_connections = len(G.adj[node])
+
         node_text.append(
             f'Posición: {node}<br>'
+            f'Conexiones: {num_connections}<br>'
             f'Adyacentes: {", ".join(adyacentes)}<br>'
             f'Fuego: {G.nodes[node].get("fire")}<br>'
             f'POI: {G.nodes[node].get("POI")}<br>'
-            f'Es punto de entrada: {G.nodes[node].get("isEntryPoint", False)}'   
+            f'Es punto de entrada: {G.nodes[node].get("isEntryPoint", False)}'
         )
 
     node_trace = go.Scatter(
@@ -355,8 +387,8 @@ def add_fire(G, x, y):
     G.nodes[(x, y)]['fire'] = 2
 
     # Cambia el peso de las aristas adyacentes a la celda a 3
-    # Significa que al agente le costará el doble de tiempo pasar por esa arista
-    # Moverse en una celda con fuego cuesta 2 puntos de acción
+    # Path: 2 puntos para apagar el fuego y 1 punto para moverse
+    # Wall: 4 puntos para tirar la puerta, 2 puntos para apagar el fuego y 1 puntos para moverse
     for neighbor in G.adj[(x, y)]:
         if G.get_edge_data((x, y), neighbor)['type'] == 'path':
             G[(x, y)][neighbor]['weight'] = 3
@@ -373,6 +405,12 @@ def add_smoke(G, x, y):
     # Colocar humo
     G.nodes[(x, y)]['fire'] = 1
 
+    # Cambia el peso de las aristas adyacentes a la celda a 2
+    # 1 punto para apartar el humo y 1 punto para moverse
+    for neighbor in G.adj[(x, y)]:
+        if G.get_edge_data((x, y), neighbor)['type'] == 'path':
+            G[(x, y)][neighbor]['weight'] = 2
+
 def extinguish(G, x, y):
     """
     Convertir el fuego en humo, y el humo en nada
@@ -386,15 +424,21 @@ def extinguish(G, x, y):
     if G.nodes[(x, y)]['fire'] == 2:
         G.nodes[(x, y)]['fire'] = 1  # Convertir fuego en humo
 
+        # Cambiar el peso de las aristas adyacentes a 2
+        for neighbor in G.adj[(x, y)]:
+            # Verificar si hay un camino (no se cambia el peso de las paredes, puertas, ni fuego)
+            if G.get_edge_data((x, y), neighbor)['type'] == 'path':
+                G[(x, y)][neighbor]['weight'] = 2
+
+    # Verificar si hay humo
+    elif G.nodes[(x, y)]['fire'] == 1:
+        G.nodes[(x, y)]['fire'] = 0  # Convertir humo en nada
+
         # Cambiar el peso de las aristas adyacentes a 1
         for neighbor in G.adj[(x, y)]:
             # Verificar si hay un camino (no se cambia el peso de las paredes, puertas, ni fuego)
             if G.get_edge_data((x, y), neighbor)['type'] == 'path':
                 G[(x, y)][neighbor]['weight'] = 1
-
-    # Verificar si hay humo
-    elif G.nodes[(x, y)]['fire'] == 1:
-        G.nodes[(x, y)]['fire'] = 0  # Convertir humo en nada
 
 def ignite_cell(G, x, y):
     """
@@ -423,13 +467,12 @@ def ignite_cell(G, x, y):
         for neighbor in neighbors:
             # Verificar si hay humo y no hay una pared bloqueante 
             if G.nodes[neighbor]['fire'] == 1 and G.get_edge_data((x, y), neighbor)['type'] != 'wall':
-                if G.nodes[neighbor]['fire'] == 2 and G.get_edge_data((x, y), neighbor)['type'] != 'wall':
-                    # Verificar si hay una puerta y si está abierta
-                    if G.get_edge_data((x, y), neighbor)['type'] == 'door' and is_door_open(G, x, y, neighbor[0], neighbor[1]):
-                        ignite_cell(G, neighbor[0], neighbor[1])  # Convertir humo en fuego recursivamente
-                    # Si no hay puerta, verificar si hay un camino
-                    elif G.get_edge_data((x, y), neighbor)['type'] == 'path':
-                        ignite_cell(G, neighbor[0], neighbor[1])  # Convertir humo en fuego recursivamente
+                # Verificar si hay una puerta y si está abierta
+                if G.get_edge_data((x, y), neighbor)['type'] == 'door' and is_door_open(G, x, y, neighbor[0], neighbor[1]):
+                    ignite_cell(G, neighbor[0], neighbor[1])  # Convertir humo en fuego recursivamente
+                # Si no hay puerta, verificar si hay un camino
+                elif G.get_edge_data((x, y), neighbor)['type'] == 'path':
+                    ignite_cell(G, neighbor[0], neighbor[1])  # Convertir humo en fuego recursivamente
 
     # Verificar si hay fuego (Explosión)
     elif G.nodes[(x, y)]['fire'] == 2:
@@ -484,7 +527,7 @@ def propagate_explosion(G, x, y):
 
             # Si la celda está vacía
             if G.nodes[(next_x, next_y)]['fire'] == 0:
-                G.nodes[(next_x, next_y)]['fire'] = 2  # Colocar fuego
+                add_fire(G, next_x, next_y)
                 print(f"Fuego propagado a {(next_x, next_y)}")
                 break
 
@@ -577,31 +620,14 @@ def is_door_open(G, x1, y1, x2, y2):
         return False
 
     # Verificar si hay una puerta abierta
-    if G.get_edge_data((x1, y1), (x2, y2))['type'] == 'door' and G.get_edge_data((x1, y1), (x2, y2))['weight'] == 1:
-        return True
-    else:
-        return False
+    return G.get_edge_data((x1, y1), (x2, y2))['type'] == 'door' and G.get_edge_data((x1, y1), (x2, y2))['weight'] == 1
 
 # ----------------- Simulación -----------------
 
 # Inicializar el tablero
 G = initialize_board(board_config)
 
-print("-- Inicial")
-plot_graph(G, title='Tablero inicial')
+# Graficar el tablero
+print("Tablero inicial")
 
-
-# Agregar humo y abrir puertas
-
-add_smoke(G, 0, 2)
-add_smoke(G, 0, 3)
-open_door(G, 0, 2, 0, 3)
-
-print("-- Humo")
-plot_graph(G, title='Tablero con humo')
-
-# Resolver humo
-solve_smoke(G)
-
-print("-- Humo resuelto")
-plot_graph(G, title='Tablero con humo resuelto')
+plot_graph(G)
