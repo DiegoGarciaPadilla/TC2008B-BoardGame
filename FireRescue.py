@@ -64,106 +64,95 @@ board_config = read_board_config()
 
 def initialize_board(board_config):
     """
-    De acuerdo a la configuración del tablero, se inicializa el tablero como un grafo
+    Inicializa el tablero como un grafo usando la librería NetworkX
     """
 
     # Crear un grafo vacío
     G = nx.Graph()
 
-    # Información del tablero (transiciones y muros)
-    # "TLDR" -> Top, Left, Down, Right
-    board_info = board_config['board']
+    # Expandir el tablero con un anillo exterior
+    rows = len(board_config['board'])
+    cols = len(board_config['board'][0])
 
-    # Puertas
+    expanded_board = [['x' for _ in range(cols + 2)] for _ in range(rows + 2)]
+
+    # Copiar la información del tablero original al centro del tablero expandido
+    for i in range(rows):
+        for j in range(cols):
+            expanded_board[i + 1][j + 1] = board_config['board'][i][j]
+
+    # Ajustar las coordenadas de las puertas
     doors = {}
     for door in board_config['doors']:
-        # Se resta 1 a las coordenadas para que coincidan con las coordenadas del tablero
-        doors[(int(door[0]) - 1, int(door[1]) - 1)] = (int(door[2]) - 1, int(door[3]) - 1)
+        doors[(int(door[0]), int(door[1]))] = (int(door[2]), int(door[3]))
 
-    # Agregar los nodos al grafo
-    for i in range(len(board_info)):
-        for j in range(len(board_info[i])):
-            G.add_node((i, j), fire=0, POI=None, isEntryPoint=False)
+    # Agregar nodos para cada celda del tablero expandido
+    for i in range(rows + 2):
+        for j in range(cols + 2):
+            if i == 0 or j == 0 or i == rows + 1 or j == cols + 1:
+                # Nodo en el anillo exterior
+                G.add_node((i, j), fire=0, POI=None, isEntryPoint=False, type='exterior')
+            else:
+                # Nodo dentro del tablero original
+                G.add_node((i, j), fire=0, POI=None, isEntryPoint=False, type='interior')
 
-    # Agregar las aristas al grafo
-    for i in range(len(board_info)):
-        for j in range(len(board_info[i])):
-
-            # String con la información de la celda
-            # "TLDR" -> Top, Left, Down, Right
-            # Peso 1 -> Libre / Puerta abierta o destruida
-            # Peso 2 -> Puerta cerrada
-            # Peso 5 -> Pared
-            
-            # Verificar si hay una transición arriba
-            if board_info[i][j][0] == '0':
+    # Crear las conexiones del tablero expandido
+    for i in range(1, rows + 1):
+        for j in range(1, cols + 1):
+            # Verificar las transiciones (TLDR - Top, Left, Down, Right)
+            if expanded_board[i][j][0] == '0':  # Arriba
                 add_path(G, i, j, i - 1, j)
-            else:
-                # Verificar si hay una puerta
-                if (i, j) in doors and doors[(i, j)] == (i - 1, j):
-                    # Agregar puerta
-                    add_door(G, i, j, i - 1, j)
-                # Si no hay puerta, agregar pared
-                elif i != 0 and not G.has_edge((i, j), (i - 1, j)):
-                    add_wall(G, i, j, i - 1, j)
+            elif (i, j) in doors and doors[(i, j)] == (i - 1, j):
+                add_door(G, i, j, i - 1, j)
+            elif i > 0 and not G.has_edge((i, j), (i - 1, j)):
+                add_wall(G, i, j, i - 1, j)
 
-
-            # Verificar si hay una transición a la izquierda
-            if board_info[i][j][1] == '0':
+            if expanded_board[i][j][1] == '0':  # Izquierda
                 add_path(G, i, j, i, j - 1)
-            else:
-                # Verificar si hay una puerta
-                if (i, j) in doors and doors[(i, j)] == (i, j - 1):
-                    # Agregar puerta
-                    add_door(G, i, j, i, j - 1)
-                # Si no hay puerta, agregar pared
-                elif j != 0 and not G.has_edge((i, j), (i, j - 1)):
-                    add_wall(G, i, j, i, j - 1)
+            elif (i, j) in doors and doors[(i, j)] == (i, j - 1):
+                add_door(G, i, j, i, j - 1)
+            elif j > 0 and not G.has_edge((i, j), (i, j - 1)):
+                add_wall(G, i, j, i, j - 1)
 
-            # Verificar si hay una transición abajo
-            if board_info[i][j][2] == '0':
+            if expanded_board[i][j][2] == '0':  # Abajo
                 add_path(G, i, j, i + 1, j)
-            else:
-                # Verificar si hay una puerta
-                if (i, j) in doors and doors[(i, j)] == (i + 1, j):
-                    # Agregar puerta
-                    add_door(G, i, j, i + 1, j)
-                # Si no hay puerta, agregar pared
-                elif i != len(board_info) - 1 and not G.has_edge((i, j), (i + 1, j)):
-                    add_wall(G, i, j, i + 1, j)
+            elif (i, j) in doors and doors[(i, j)] == (i + 1, j):
+                add_door(G, i, j, i + 1, j)
+            elif i < rows + 1 and not G.has_edge((i, j), (i + 1, j)):
+                add_wall(G, i, j, i + 1, j)
 
-            # Verificar si hay una transición a la derecha
-            if board_info[i][j][3] == '0':
+            if expanded_board[i][j][3] == '0':  # Derecha
                 add_path(G, i, j, i, j + 1)
-            else:
-                # Verificar si hay una puerta
-                if (i, j) in doors and doors[(i, j)] == (i, j + 1):
-                    # Agregar puerta
-                    add_door(G, i, j, i, j + 1)
-                # Si no hay puerta, agregar pared
-                elif j != len(board_info[i]) - 1 and not G.has_edge((i, j), (i, j + 1)):
-                    add_wall(G, i, j, i, j + 1)
+            elif (i, j) in doors and doors[(i, j)] == (i, j + 1):
+                add_door(G, i, j, i, j + 1)
+            elif j < cols + 1 and not G.has_edge((i, j), (i, j + 1)):
+                add_wall(G, i, j, i, j + 1)
 
-    # Agregar los puntos de interés
-    # None -> No es un punto de interés
-    # True -> Hay una víctima
-    # False -> Es una falsa alarma
+    # Conectar nodos exteriores entre sí
+    for i in range(rows + 2):
+        for j in range(cols + 2):
+            if G.nodes[(i, j)]['type'] == 'exterior':
+                neighbors = [
+                    (i - 1, j),  # Arriba
+                    (i + 1, j),  # Abajo
+                    (i, j - 1),  # Izquierda
+                    (i, j + 1)   # Derecha
+                ]
+                for neighbor in neighbors:
+                    if neighbor in G.nodes and G.nodes[neighbor]['type'] == 'exterior':
+                        if not G.has_edge((i, j), neighbor):
+                            G.add_edge((i, j), neighbor, weight=1, type='path')
+
+    # Configurar puntos de interés y fuego inicial
     for poi in board_config['points_of_interest']:
-        add_POI(G, int(poi[0]) - 1, int(poi[1]) - 1, poi[2] == 'v')
-
-    # Agregar los indicadores de fuego
-    # 0 -> No hay fuego
-    # 1 -> Hay humo
-    # 2 -> Hay fuego
+        add_POI(G, int(poi[0]), int(poi[1]), poi[2] == 'v')
     for fire in board_config['fire_indicators']:
-        add_fire(G, int(fire[0]) - 1, int(fire[1]) - 1)
+        add_fire(G, int(fire[0]), int(fire[1]))
 
-    # Agregar los puntos de entrada
+    # Configurar puntos de entrada
     for entry_point in board_config['entry_points']:
-        G.nodes[(int(entry_point[0]) - 1, int(entry_point[1]) - 1)]['isEntryPoint'] = True
+        G.nodes[(int(entry_point[0]), int(entry_point[1]))]['isEntryPoint'] = True
 
-
-    # Retornar el grafo
     return G
 
 # ----------------- Funciones de visualización -----------------
