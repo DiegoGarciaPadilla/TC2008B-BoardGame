@@ -62,10 +62,9 @@ board_config = read_board_config()
 
 # ----------------- Función para crear el grafo -----------------
 
-def initialize_board(board_config):
+def read_board(board_config):
     """
     Inicializa el tablero como un grafo usando NetworkX.
-    Maneja correctamente las conexiones entre nodos exteriores e interiores.
     """
 
     # Crear un grafo vacío
@@ -93,10 +92,10 @@ def initialize_board(board_config):
         for j in range(cols + 2):
             if i == 0 or j == 0 or i == rows + 1 or j == cols + 1:
                 # Nodo en el anillo exterior
-                G.add_node((i, j), fire=0, POI=None, isEntryPoint=False, type='exterior')
+                G.add_node((i, j), fire=0, POI=None, is_entry_point=False, type='exterior')
             else:
                 # Nodo dentro del tablero original
-                G.add_node((i, j), fire=0, POI=None, isEntryPoint=False, type='interior')
+                G.add_node((i, j), fire=0, POI=None, is_entry_point=False, type='interior')
 
     # Crear las conexiones del tablero expandido
     for i in range(rows + 2):
@@ -183,6 +182,66 @@ def initialize_board(board_config):
 
     return G
 
+def validate_graph(G):
+    """
+    Validar y actualizar los pesos de las aristas en el grafo en función del estado actual (fuego, humo, puertas).
+    """
+
+    for edge in G.edges(data=True):
+        node1, node2, edge_data = edge
+
+        # Determinar el estado de los nodos conectados
+        fire_status1 = G.nodes[node1].get('fire', 0)  # Nodo 1: 0 (nada), 1 (humo), 2 (fuego)
+        fire_status2 = G.nodes[node2].get('fire', 0)  # Nodo 2: 0 (nada), 1 (humo), 2 (fuego)
+        edge_type = edge_data.get('type', 'path')  # Por defecto, consideramos 'path'
+
+        # Determinar el peso en función del peor caso (fuego > humo > nada)
+        fire_status = max(fire_status1, fire_status2)
+
+        # Ajustar el peso según el estado del nodo y el tipo de conexión
+        if fire_status == 2:  # Fuego
+            if edge_type == 'path':
+                G[node1][node2]['weight'] = 3
+            elif edge_type == 'wall':
+                G[node1][node2]['weight'] = 7
+            elif edge_type == 'door':
+                if edge_data.get('is_open', False):
+                    G[node1][node2]['weight'] = 3
+                else:
+                    G[node1][node2]['weight'] = 4
+        elif fire_status == 1:  # Humo
+            if edge_type == 'path':
+                G[node1][node2]['weight'] = 2
+            elif edge_type == 'wall':
+                G[node1][node2]['weight'] = 6
+            elif edge_type == 'door':
+                if edge_data.get('is_open', False):
+                    G[node1][node2]['weight'] = 2
+                else:
+                    G[node1][node2]['weight'] = 3
+        else:  # Sin fuego ni humo
+            if edge_type == 'path':
+                G[node1][node2]['weight'] = 1
+            elif edge_type == 'wall':
+                G[node1][node2]['weight'] = 5
+            elif edge_type == 'door':
+                if edge_data.get('is_open', False):
+                    G[node1][node2]['weight'] = 1
+                else:
+                    G[node1][node2]['weight'] = 2
+
+def initialize_board(board_config):
+    """
+    Inicializar el tablero como un grafo con la configuración del archivo de configuración.
+    """
+
+    G = read_board(board_config)
+
+    # Validar y actualizar los pesos de las aristas
+    validate_graph(G)
+
+    return G
+
 # ----------------- Funciones de visualización -----------------
 
 def plot_graph(G, title='Flash Point: Fire Rescue'):
@@ -221,13 +280,20 @@ def plot_graph(G, title='Flash Point: Fire Rescue'):
         edge_type = edge[2].get('type', 'unknown')  # 'unknown' si no tiene tipo
         edge_colors.append(edge_type_colors.get(edge_type, 'gray'))  # Usar color definido o 'gray'
 
-        # Guardar anotaciones para peso y tipo
+        # Guardar anotaciones para peso, tipo, y estado de apertura (si es una puerta)
         weight = edge[2].get('weight', '?')
+        is_open = edge[2].get('is_open', None)  # Obtener el estado de apertura (None si no aplica)
+        if edge_type == 'door':  # Solo agregar estado de apertura para puertas
+            door_state = 'Abierta' if is_open else 'Cerrada'
+            annotation_text = f'{weight}<br>{edge_type}<br>{door_state}'
+        else:
+            annotation_text = f'{weight}<br>{edge_type}'
+
         edge_annotations.append(
             dict(
                 x=(x0 + x1) / 2,
                 y=(y0 + y1) / 2,
-                text=f'{weight}<br>{edge_type}',  # Mostrar peso y tipo
+                text=annotation_text,  # Mostrar peso, tipo y estado de apertura
                 showarrow=False,
                 font=dict(size=10, color='black')
             )
@@ -352,7 +418,7 @@ def add_door(G, x1, y1, x2, y2):
         return 
 
     # Agregar la puerta al grafo
-    G.add_edge((x1, y1), (x2, y2), type='door', weight=2)
+    G.add_edge((x1, y1), (x2, y2), type='door', weight=2, is_open=False)
 
 def add_POI(G, x, y, is_victim):
     """
@@ -386,12 +452,22 @@ def add_fire(G, x, y):
     # Colocar fuego
     G.nodes[(x, y)]['fire'] = 2
 
-    # Cambia el peso de las aristas adyacentes a la celda a 3
+    # Cambia el peso de las aristas adyacentes
     # Path: 2 puntos para apagar el fuego y 1 punto para moverse
-    # Wall: 4 puntos para tirar la puerta, 2 puntos para apagar el fuego y 1 puntos para moverse
+    # Wall: 4 para tirar la pared, 2 para apagar el fuego y 1 para moverse
+    # Door: Variable (3 o 4 puntos dependiendo de si está abierta o cerrada)
     for neighbor in G.adj[(x, y)]:
         if G.get_edge_data((x, y), neighbor)['type'] == 'path':
             G[(x, y)][neighbor]['weight'] = 3
+        elif G.get_edge_data((x, y), neighbor)['type'] == 'wall':
+            G[(x, y)][neighbor]['weight'] = 7
+        elif G.get_edge_data((x, y), neighbor)['type'] == 'door':
+            if is_door_open(G, x, y, neighbor[0], neighbor[1]):
+                # Cambiar el peso de la arista a 3 (2 puntos para apagar el fuego y 1 punto para moverse)
+                G[(x, y)][neighbor]['weight'] = 3 
+            else:
+                # Cambiar el peso de la arista a 4 (1 puntos para abrir la puerta, 2 puntos para apagar el fuego y 1 punto para moverse)
+                G[(x, y)][neighbor]['weight'] = 4
 
 def add_smoke(G, x, y):
     """
@@ -405,11 +481,22 @@ def add_smoke(G, x, y):
     # Colocar humo
     G.nodes[(x, y)]['fire'] = 1
 
-    # Cambia el peso de las aristas adyacentes a la celda a 2
-    # 1 punto para apartar el humo y 1 punto para moverse
+    # Cambia el peso de las aristas adyacentes
+    # Path: 1 puntos para apagar el humo y 1 punto para moverse
+    # Wall: 4 para tirar la pared, 1 para apagar el humo y 1 para moverse
+    # Door: Variable (2 o 3 puntos dependiendo de si está abierta o cerrada)
     for neighbor in G.adj[(x, y)]:
         if G.get_edge_data((x, y), neighbor)['type'] == 'path':
             G[(x, y)][neighbor]['weight'] = 2
+        elif G.get_edge_data((x, y), neighbor)['type'] == 'wall':
+            G[(x, y)][neighbor]['weight'] = 6
+        elif G.get_edge_data((x, y), neighbor)['type'] == 'door':
+            if is_door_open(G, x, y, neighbor[0], neighbor[1]):
+            # Cambiar el peso de la arista a 3 (1 puntos para apagar el humo y 1 punto para moverse)
+                G[(x, y)][neighbor]['weight'] = 2
+            else:
+            # Cambiar el peso de la arista a 4 (1 puntos para abrir la puerta, 1 puntos para apagar el humo y 1 punto para moverse)
+                G[(x, y)][neighbor]['weight'] = 3
 
 def extinguish(G, x, y):
     """
@@ -424,21 +511,43 @@ def extinguish(G, x, y):
     if G.nodes[(x, y)]['fire'] == 2:
         G.nodes[(x, y)]['fire'] = 1  # Convertir fuego en humo
 
-        # Cambiar el peso de las aristas adyacentes a 2
+        # Cambia el peso de las aristas adyacentes
+        # Path: 1 puntos para apagar el humo y 1 punto para moverse
+        # Wall: 4 para tirar la pared, 1 para apagar el humo y 1 para moverse
+        # Door: Variable (2 o 3 puntos dependiendo de si está abierta o cerrada)
         for neighbor in G.adj[(x, y)]:
-            # Verificar si hay un camino (no se cambia el peso de las paredes, puertas, ni fuego)
             if G.get_edge_data((x, y), neighbor)['type'] == 'path':
                 G[(x, y)][neighbor]['weight'] = 2
+            elif G.get_edge_data((x, y), neighbor)['type'] == 'wall':
+                G[(x, y)][neighbor]['weight'] = 6
+            elif G.get_edge_data((x, y), neighbor)['type'] == 'door':
+                if is_door_open(G, x, y, neighbor[0], neighbor[1]):
+                    # Cambiar el peso de la arista a 2 (1 puntos para apagar el humo y 1 punto para moverse)
+                    G[(x, y)][neighbor]['weight'] = 2
+                else:
+                    # Cambiar el peso de la arista a 3 (1 puntos para abrir la puerta, 1 puntos para apagar el humo y 1 punto para moverse)
+                    G[(x, y)][neighbor]['weight'] = 3
 
     # Verificar si hay humo
     elif G.nodes[(x, y)]['fire'] == 1:
         G.nodes[(x, y)]['fire'] = 0  # Convertir humo en nada
 
-        # Cambiar el peso de las aristas adyacentes a 1
+        # Cambia el peso de las aristas adyacentes
+        # Path: 1 punto para moverse
+        # Wall: 4 para tirar la pared y 1 para moverse
+        # Door: Variable (2 o 1 puntos dependiendo de si está abierta o cerrada)
         for neighbor in G.adj[(x, y)]:
-            # Verificar si hay un camino (no se cambia el peso de las paredes, puertas, ni fuego)
             if G.get_edge_data((x, y), neighbor)['type'] == 'path':
                 G[(x, y)][neighbor]['weight'] = 1
+            elif G.get_edge_data((x, y), neighbor)['type'] == 'wall':
+                G[(x, y)][neighbor]['weight'] = 5
+            elif G.get_edge_data((x, y), neighbor)['type'] == 'door':
+                if is_door_open(G, x, y, neighbor[0], neighbor[1]):
+                    # Cambiar el peso de la arista a 1 (1 punto para moverse)
+                    G[(x, y)][neighbor]['weight'] = 1
+                else:
+                    # Cambiar el peso de la arista a 4 (1 puntos para abrir la puerta y 1 punto para moverse)
+                    G[(x, y)][neighbor]['weight'] = 2
 
 def ignite_cell(G, x, y):
     """
@@ -467,9 +576,19 @@ def ignite_cell(G, x, y):
         for neighbor in neighbors:
             # Verificar si hay humo y no hay una pared bloqueante 
             if G.nodes[neighbor]['fire'] == 1 and G.get_edge_data((x, y), neighbor)['type'] != 'wall':
-                # Verificar si hay una puerta y si está abierta
-                if G.get_edge_data((x, y), neighbor)['type'] == 'door' and is_door_open(G, x, y, neighbor[0], neighbor[1]):
-                    ignite_cell(G, neighbor[0], neighbor[1])  # Convertir humo en fuego recursivamente
+                # Verificar si hay una puerta
+                if G.get_edge_data((x, y), neighbor)['type'] == 'door':
+                    # Convertir humo en fuego recursivamente
+                    ignite_cell(G, neighbor[0], neighbor[1])
+
+                    # Verificar si la puerta está abierta
+                    if is_door_open(G, x, y, neighbor[0], neighbor[1]):
+                        # Cambiar el peso de la arista a 3 (2 puntos para apagar el fuego y 1 punto para moverse)
+                        G[(x, y)][neighbor]['weight'] = 3 
+                    else:
+                        # Cambiar el peso de la arista a 4 (1 puntos para abrir la puerta, 2 puntos para apagar el fuego y 1 punto para moverse)
+                        G[(x, y)][neighbor]['weight'] = 4
+                        
                 # Si no hay puerta, verificar si hay un camino
                 elif G.get_edge_data((x, y), neighbor)['type'] == 'path':
                     ignite_cell(G, neighbor[0], neighbor[1])  # Convertir humo en fuego recursivamente
@@ -590,6 +709,9 @@ def open_door(G, x1, y1, x2, y2):
     # Verificar si hay una puerta cerrada
     if not is_door_open(G, x1, y1, x2, y2):
         # Abrir la puerta
+        G[(x1, y1)][(x2, y2)]['is_open'] = True
+
+        # Cambiar el peso de la arista a 1
         G[(x1, y1)][(x2, y2)]['weight'] = 1
     else:
         print("No hay una puerta cerrada en esa posición")
@@ -606,6 +728,9 @@ def close_door(G, x1, y1, x2, y2):
     # Verificar si hay una puerta abierta
     if is_door_open(G, x1, y1, x2, y2):
         # Cerrar la puerta
+        G[(x1, y1)][(x2, y2)]['is_open'] = False
+
+        # Cambiar el peso de la arista a 2
         G[(x1, y1)][(x2, y2)]['weight'] = 2
     else:
         print("No hay una puerta abierta en esa posición")
@@ -620,14 +745,13 @@ def is_door_open(G, x1, y1, x2, y2):
         return False
 
     # Verificar si hay una puerta abierta
-    return G.get_edge_data((x1, y1), (x2, y2))['type'] == 'door' and G.get_edge_data((x1, y1), (x2, y2))['weight'] == 1
+    return G.get_edge_data((x1, y1), (x2, y2))['type'] == 'door' and G.get_edge_data((x1, y1), (x2, y2))['is_open']
 
 # ----------------- Simulación -----------------
 
 # Inicializar el tablero
 G = initialize_board(board_config)
 
-# Graficar el tablero
-print("Tablero inicial")
 
-plot_graph(G)
+
+plot_graph(G, title='Tablero inicial')
