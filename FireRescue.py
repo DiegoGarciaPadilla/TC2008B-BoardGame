@@ -176,9 +176,29 @@ def read_board(board_config):
     for fire in board_config['fire_indicators']:
         add_fire(G, int(fire[0]), int(fire[1]))
 
-    # Configurar puntos de entrada
+    # Conectar puntos de entrada a nodos externos
     for entry_point in board_config['entry_points']:
-        G.nodes[(int(entry_point[0]), int(entry_point[1]))]['isEntryPoint'] = True
+        entry_x, entry_y = int(entry_point[0]), int(entry_point[1])
+        G.nodes[(entry_x, entry_y)]['isEntryPoint'] = True
+
+        # Conectar al nodo externo más cercano
+        neighbors = [
+            (entry_x - 1, entry_y),  # Arriba
+            (entry_x + 1, entry_y),  # Abajo
+            (entry_x, entry_y - 1),  # Izquierda
+            (entry_x, entry_y + 1)   # Derecha
+        ]
+
+        for neighbor in neighbors:
+            if neighbor in G.nodes and G.nodes[neighbor]['type'] == 'exterior':
+                # Asegurarse de que sea un camino, no un muro
+                if G.has_edge((entry_x, entry_y), neighbor):
+                    G[(entry_x, entry_y)][neighbor]['type'] = 'path'
+                    G[(entry_x, entry_y)][neighbor]['weight'] = 1
+                else:
+                    # Crear una nueva conexión como un camino
+                    G.add_edge((entry_x, entry_y), neighbor, type='path', weight=1)
+
 
     return G
 
@@ -246,7 +266,7 @@ def initialize_board(board_config):
 
 def plot_graph(G, title='Flash Point: Fire Rescue'):
     """
-    Graficar el grafo con Plotly, mostrando las conexiones de los nodos al hacer hover.
+    Graficar el grafo con Plotly.
     """
 
     # Definir las posiciones de los nodos como una cuadrícula
@@ -342,11 +362,15 @@ def plot_graph(G, title='Flash Point: Fire Rescue'):
             edge_type = edge_data.get('type', 'unknown')
             adyacentes.append(f'{neighbor}: {edge_type}')
 
+        # Obtener el tipo del nodo, si existe
+        node_type = G.nodes[node].get("type", "undefined")
+
         # Agregar el número de conexiones (grados del nodo)
         num_connections = len(G.adj[node])
 
         node_text.append(
             f'Posición: {node}<br>'
+            f'Tipo: {node_type}<br>'  # Mostrar el tipo del nodo
             f'Conexiones: {num_connections}<br>'
             f'Adyacentes: {", ".join(adyacentes)}<br>'
             f'Fuego: {G.nodes[node].get("fire")}<br>'
@@ -422,7 +446,7 @@ def add_door(G, x1, y1, x2, y2):
 
 def add_POI(G, x, y, is_victim):
     """
-    Agregar un punto de interés al grafo
+    Agregar un punto de interés al grafo en el nodo especificado
     """
 
     # Verificar si la celda existe
@@ -439,6 +463,19 @@ def add_POI(G, x, y, is_victim):
 
     # Agregar el punto de interés
     G.nodes[(x, y)]['POI'] = is_victim
+
+def place_POI(G):
+    """
+    Coloca un punto de interés en un nodo aleatorio del grafo
+    """
+
+    # Obtener nodos interiores sin puntos de interés
+    interior_nodes = [node for node in G.nodes if G.nodes[node]['type'] == 'exterior' and G.nodes[node].get('POI') is None]
+
+    # Seleccionar un nodo aleatorio
+    if interior_nodes:
+        node = np.random.choice(interior_nodes)
+        add_POI(G, node[0], node[1], np.random.choice([True, False]))
 
 def add_fire(G, x, y):
     """
@@ -751,7 +788,5 @@ def is_door_open(G, x1, y1, x2, y2):
 
 # Inicializar el tablero
 G = initialize_board(board_config)
-
-
 
 plot_graph(G, title='Tablero inicial')
