@@ -168,7 +168,7 @@ def initialize_board(board_config):
 
 # ----------------- Funciones de visualización -----------------
 
-def plot_graph(G):
+def plot_graph(G, title='Flash Point: Fire Rescue'):
     """
     Graficar el grafo con Plotly
     """
@@ -282,7 +282,7 @@ def plot_graph(G):
     fig = go.Figure(
         data=edge_traces + [node_trace],  # Agregar trazas de aristas coloreadas y nodos
         layout=go.Layout(
-            title='Flash Point: Fire Rescue',
+            title=title,
             titlefont_size=16,
             showlegend=False,
             hovermode='closest',
@@ -342,6 +342,14 @@ def add_POI(G, x, y, is_victim):
     if (x, y) not in G.nodes:
         return
     
+    # Borrar fuego y humo de la celda
+    G.nodes[(x, y)]['fire'] = 0
+
+    # Cambiar peso de las aristas adyacentes a 1
+    for neighbor in G.adj[(x, y)]:
+        if G.get_edge_data((x, y), neighbor)['type'] == 'path':
+            G[(x, y)][neighbor]['weight'] = 1
+
     # Agregar el punto de interés
     G.nodes[(x, y)]['POI'] = is_victim
 
@@ -375,6 +383,29 @@ def add_smoke(G, x, y):
     
     # Colocar humo
     G.nodes[(x, y)]['fire'] = 1
+
+def extinguish(G, x, y):
+    """
+    Convertir el fuego en humo, y el humo en nada
+    """
+
+    # Verificar si la celda existe
+    if (x, y) not in G.nodes:
+        return 
+    
+    # Verificar si hay fuego
+    if G.nodes[(x, y)]['fire'] == 2:
+        G.nodes[(x, y)]['fire'] = 1  # Convertir fuego en humo
+
+        # Cambiar el peso de las aristas adyacentes a 1
+        for neighbor in G.adj[(x, y)]:
+            # Verificar si hay un camino (no se cambia el peso de las paredes, puertas, ni fuego)
+            if G.get_edge_data((x, y), neighbor)['type'] == 'path':
+                G[(x, y)][neighbor]['weight'] = 1
+
+    # Verificar si hay humo
+    elif G.nodes[(x, y)]['fire'] == 1:
+        G.nodes[(x, y)]['fire'] = 0  # Convertir humo en nada
 
 def ignite_cell(G, x, y):
     """
@@ -467,6 +498,18 @@ def propagate_explosion(G, x, y):
                 current_x, current_y = next_x, next_y
                 continue
 
+def solve_smoke(G):
+    """
+    Al final de cada turno, todo el humo en contacto con el fuego se convierte en fuego.
+    """
+
+    for node in G.nodes():
+        if G.nodes[node]['fire'] == 1:
+            for neighbor in G.adj[node]:
+                # Verificar si hay fuego en los vecinos y no hay una pared bloqueante
+                if G.nodes[neighbor]['fire'] == 2 and G.get_edge_data(node, neighbor)['type'] != 'wall':
+                    add_fire(G, node[0], node[1])
+
 def shortest_path(G, start, end):
     """
     Encontrar el camino más corto entre dos nodos con el algoritmo de Dijkstra
@@ -498,10 +541,26 @@ def shortest_path(G, start, end):
 G = initialize_board(board_config)
 
 print("-- Inicial")
-# plot_graph(G)
+plot_graph(G, title='Tablero inicial')
 
-# Calcula el camino más corto entre dos celdas
-shortest = shortest_path(G, (3, 7), (4, 7))
+# Agregar humo 
 
-print("-- Camino más corto")
-print(shortest)
+add_smoke(G, 3, 2)
+add_smoke(G, 4, 2)
+
+print("-- Humo")
+plot_graph(G, title='Tablero con humo')
+
+# Extinción de fuego
+
+extinguish(G, 3, 2)
+
+print("-- Fuego extinguido en (3, 2)")
+plot_graph(G, title='Tablero con fuego extinguido en (3, 2)')   
+
+# Resolver humo
+
+solve_smoke(G)
+
+print("-- Humo resuelto")
+plot_graph(G, title='Tablero con humo resuelto')
