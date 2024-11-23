@@ -556,7 +556,7 @@ def open_door(G, x1, y1, x2, y2):
         return 
 
     # Verificar si hay una puerta cerrada
-    if G.get_edge_data((x1, y1), (x2, y2))['type'] == 'door' and G.get_edge_data((x1, y1), (x2, y2))['weight'] == 2:
+    if not is_door_open(G, x1, y1, x2, y2):
         # Abrir la puerta
         G[(x1, y1)][(x2, y2)]['weight'] = 1
     else:
@@ -572,7 +572,7 @@ def close_door(G, x1, y1, x2, y2):
         return 
 
     # Verificar si hay una puerta abierta
-    if G.get_edge_data((x1, y1), (x2, y2))['type'] == 'door' and G.get_edge_data((x1, y1), (x2, y2))['weight'] == 1:
+    if is_door_open(G, x1, y1, x2, y2):
         # Cerrar la puerta
         G[(x1, y1)][(x2, y2)]['weight'] = 2
     else:
