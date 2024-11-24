@@ -482,72 +482,63 @@ def draw_board(graph):
 
 # ----------------- Funciones de transformación -----------------
 
-def graph_to_json(board_config, G):
+import json
+
+def build_json(board_config, graph, agents):
     """
-    Convertir el grafo a una matriz JSON para exportar a Unity.
+    Construir un JSON con la información del tablero, puertas, agentes, fuego, humo y puntos de interés.
 
     Args:
-        G: Grafo de NetworkX.
+        board_config: Diccionario con la configuración inicial del tablero.
+        graph: Grafo con la información del tablero.
+        agents: Lista de agentes con sus posiciones y tipos.
 
     Returns:
-        JSON: Matriz NxM con la información del grafo.
+        str: JSON con toda la información del tablero.
     """
+    json_data = {
+        "board": board_config["board"],  # Matriz de paredes (ya la tienes)
+        "doors": [],
+        "agents": [],
+        "fire": [],
+        "smoke": [],
+        "points_of_interest": []
+    }
 
-    # Obtener la configuración del tablero
-    board_config = board_config['board']
+    # Puertas
+    for u, v, data in graph.edges(data=True):
+        if data.get("type") == "door":
+            json_data["doors"].append({
+                "from": list(u),
+                "to": list(v),
+                "is_open": data.get("is_open", False)
+            })
 
-    # Obtener las dimensiones del tablero
-    rows = len(board_config) + 2
-    cols = len(board_config[0]) + 2
+    # Agentes
+    for agent in agents:
+        json_data["agents"].append({
+            "id": agent.unique_id,
+            "type": agent.type,  # Ejemplo: "firefighter"
+            "position": list(agent.pos)
+        })
 
-    # Crear una matriz 6x8 vacía
-    JSON = {}
+    # Fuego y Humo
+    for node, data in graph.nodes(data=True):
+        if data.get("fire") == 2:  # Fuego
+            json_data["fire"].append(list(node))
+        elif data.get("fire") == 1:  # Humo
+            json_data["smoke"].append(list(node))
 
-    for row in range(rows):
+    # Puntos de interés
+    for node, data in graph.nodes(data=True):
+        poi = data.get("POI")
+        if poi is not None:
+            json_data["points_of_interest"].append({
+                "position": list(node),
+                "type": "victim" if poi else "false_alarm"
+            })
 
-        # Agregar una fila vacía
-        JSON[row] = {}
-
-        for col in range(cols):
-
-            # Obtener el nodo correspondiente
-            node = (row, col)
-
-            # Información sobre los muros
-            wall_info = board_config[row - 1][col - 1] if 0 < row < rows - 1 and 0 < col < cols - 1 else ''
-
-            # Información sobre las puertas
-            door_to = []
-            for neighbor in G.adj[node]:
-                if G.get_edge_data(node, neighbor)['type'] == 'door':
-                    door_to.append(neighbor)
-
-            # Obtener el tipo del nodo
-            node_type = G.nodes[node].get('type', 'undefined')
-
-            # Obtener el estado del nodo
-            fire_status = G.nodes[node].get('fire', 0)
-
-            # Obtener el POI
-            poi = G.nodes[node].get('POI', None)
-
-            # Obtener las conexiones
-            connections = node in G.adj and list(G.adj[node].keys()) or []
-
-            # Crear un diccionario con la información del nodo
-            node_info = {
-                'wall_info': wall_info,
-                'door_to': door_to,
-                'type': node_type,
-                'fire': fire_status,
-                'poi': poi,
-                'connections': connections
-            }
-
-            # Agregar el nodo
-            JSON[row][col] = node_info
-
-    return json.dumps(JSON)
+    return json.dumps(json_data)
 
 # ----------------- Funciones de modelado -----------------
 
@@ -932,8 +923,6 @@ def is_door_open(G, x1, y1, x2, y2):
 # Inicializar el tablero
 G = initialize_board(board_config)
 
-ignite_cell(G, 3, 5)
+j = build_json(board_config, G, [])
 
-ignite_cell(G, 3, 5)
-
-plot_graph(G)
+print(j)
