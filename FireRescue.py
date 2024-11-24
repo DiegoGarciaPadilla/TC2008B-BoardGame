@@ -408,6 +408,78 @@ def plot_graph(G, title='Flash Point: Fire Rescue'):
 
     fig.show()
 
+def draw_board(graph):
+    """
+    Dibuja el tablero basado únicamente en la información contenida en el grafo.
+
+    Args:
+        graph (nx.Graph): Grafo que contiene información sobre paredes, fuego, humo, puertas, etc.
+    """
+    # Obtener dimensiones del tablero a partir de los nodos del grafo
+    nodes = list(graph.nodes)
+    rows = max(node[0] for node in nodes) + 1
+    cols = max(node[1] for node in nodes) + 1
+
+    # Crear la figura con un ajuste de márgenes
+    fig, ax = plt.subplots(figsize=(cols + 2, rows + 2))  # Espacio extra en la figura
+
+    # Dibujar las celdas
+    for node in graph.nodes:
+        y, x = node  # Coordenadas (fila, columna)
+        coord_x = x - 1  # Ajuste para dibujar
+        coord_y = rows - y  # Invertir el eje Y para visualización
+
+        # Determinar color de fondo según el estado del nodo
+        color = "white"  # Color por defecto
+
+        if graph.nodes[node].get('fire') == 2:
+            color = "red"  # Fuego
+        elif graph.nodes[node].get('fire') == 1:
+            color = "gray"  # Humo
+        elif graph.nodes[node].get('POI') is not None:
+            color = "blue"  # Punto de interés
+        elif graph.nodes[node].get('isEntryPoint', False):
+            color = "green"  # Punto de entrada
+
+        # Dibujar el fondo de la celda
+        ax.add_patch(patches.Rectangle((coord_x, coord_y), 1, 1, color=color))
+
+        # Dibujar paredes y puertas
+        for neighbor in graph.neighbors(node):
+            edge_data = graph.get_edge_data(node, neighbor)
+
+            if edge_data.get('type') == 'wall':  # Dibujar pared
+                if neighbor == (y - 1, x):  # Arriba
+                    ax.plot([coord_x, coord_x + 1], [coord_y + 1, coord_y + 1], color="black", lw=2)
+                elif neighbor == (y + 1, x):  # Abajo
+                    ax.plot([coord_x, coord_x + 1], [coord_y, coord_y], color="black", lw=2)
+                elif neighbor == (y, x - 1):  # Izquierda
+                    ax.plot([coord_x, coord_x], [coord_y, coord_y + 1], color="black", lw=2)
+                elif neighbor == (y, x + 1):  # Derecha
+                    ax.plot([coord_x + 1, coord_x + 1], [coord_y, coord_y + 1], color="black", lw=2)
+            elif edge_data.get('type') == 'door':  # Dibujar puerta
+                if neighbor == (y - 1, x):  # Arriba
+                    ax.plot([coord_x, coord_x + 1], [coord_y + 1, coord_y + 1], color="orange", lw=4)
+                elif neighbor == (y + 1, x):  # Abajo
+                    ax.plot([coord_x, coord_x + 1], [coord_y, coord_y], color="orange", lw=4)
+                elif neighbor == (y, x - 1):  # Izquierda
+                    ax.plot([coord_x, coord_x], [coord_y, coord_y + 1], color="orange", lw=4)
+                elif neighbor == (y, x + 1):  # Derecha
+                    ax.plot([coord_x + 1, coord_x + 1], [coord_y, coord_y + 1], color="orange", lw=4)
+
+    # Ajustar límites para centrar el tablero
+    margin_x = 2
+    margin_y = 2
+    ax.set_xlim(-margin_x, cols + margin_x - 1)
+    ax.set_ylim(-margin_y, rows + margin_y - 1)
+
+    # Mantener aspecto cuadrado y ocultar ejes
+    ax.set_aspect('equal')
+    ax.axis('off')
+
+    # Mostrar el tablero
+    plt.show()
+
 # ----------------- Funciones de transformación -----------------
 
 def graph_to_json(board_config, G):
