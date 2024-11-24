@@ -22,6 +22,8 @@ import plotly.graph_objects as go
 
 import networkx as nx
 
+import json
+
 # ----------------- Leer el archivo de configuración -----------------
 
 def read_board_config():
@@ -406,6 +408,75 @@ def plot_graph(G, title='Flash Point: Fire Rescue'):
 
     fig.show()
 
+# ----------------- Funciones de transformación -----------------
+
+def graph_to_json(board_config, G):
+    """
+    Convertir el grafo a una matriz JSON para exportar a Unity.
+
+    Args:
+        G: Grafo de NetworkX.
+
+    Returns:
+        JSON: Matriz NxM con la información del grafo.
+    """
+
+    # Obtener la configuración del tablero
+    board_config = board_config['board']
+
+    # Obtener las dimensiones del tablero
+    rows = len(board_config) + 2
+    cols = len(board_config[0]) + 2
+
+    # Crear una matriz 6x8 vacía
+    JSON = {}
+
+    for row in range(rows):
+
+        # Agregar una fila vacía
+        JSON[row] = {}
+
+        for col in range(cols):
+
+            # Obtener el nodo correspondiente
+            node = (row, col)
+
+            # Información sobre los muros
+            wall_info = board_config[row - 1][col - 1] if 0 < row < rows - 1 and 0 < col < cols - 1 else ''
+
+            # Información sobre las puertas
+            door_to = []
+            for neighbor in G.adj[node]:
+                if G.get_edge_data(node, neighbor)['type'] == 'door':
+                    door_to.append(neighbor)
+
+            # Obtener el tipo del nodo
+            node_type = G.nodes[node].get('type', 'undefined')
+
+            # Obtener el estado del nodo
+            fire_status = G.nodes[node].get('fire', 0)
+
+            # Obtener el POI
+            poi = G.nodes[node].get('POI', None)
+
+            # Obtener las conexiones
+            connections = node in G.adj and list(G.adj[node].keys()) or []
+
+            # Crear un diccionario con la información del nodo
+            node_info = {
+                'wall_info': wall_info,
+                'door_to': door_to,
+                'type': node_type,
+                'fire': fire_status,
+                'poi': poi,
+                'connections': connections
+            }
+
+            # Agregar el nodo
+            JSON[row][col] = node_info
+
+    return json.dumps(JSON)
+
 # ----------------- Funciones de modelado -----------------
 
 def add_path(G, x1, y1, x2, y2):
@@ -674,7 +745,7 @@ def propagate_explosion(G, x, y):
                 break  # Detener propagación en esta dirección
 
             # Si hay una puerta cerrada
-            if edge_data['type'] == 'door' and edge_data['weight'] == 2:
+            if edge_data['type'] == 'door' and not is_door_open(G, current_x, current_y, next_x, next_y):
                 # La puerta es destruida y convertida en un camino
                 edge_data['type'] = 'path'
                 edge_data['weight'] = 1
@@ -789,4 +860,8 @@ def is_door_open(G, x1, y1, x2, y2):
 # Inicializar el tablero
 G = initialize_board(board_config)
 
-plot_graph(G, title='Tablero inicial')
+ignite_cell(G, 3, 5)
+
+ignite_cell(G, 3, 5)
+
+plot_graph(G)
