@@ -1089,6 +1089,26 @@ class FirefighterAgent(Agent):
         self.carrying_victim = False
         self.victim = None
 
+    def move_to(self, pos):
+        """
+        Mover al bombero a una celda adyacente.
+
+        Args:
+            pos (tuple): Coordenadas de la celda a la que se moverá el bombero.
+        """
+
+        # Verificar si el bombero está KO
+        if self.is_ko:
+            return
+
+        # Verificar si el bombero tiene suficientes puntos de acción
+        if self.ap < 1 or (self.carrying_victim and self.ap < 2):
+            return
+
+        # Mover al bombero
+        self.model.grid.move_agent(self, pos)
+        self.ap -= 1 if not self.carrying_victim else 2
+
     def move(self):
         """
         Mueve al bombero a una celda adyacente aleatoria.
@@ -1116,8 +1136,7 @@ class FirefighterAgent(Agent):
 
             # Verificar si hay una víctima
             if cell_data.get('POI') is not None:
-                self.model.grid.move_agent(self, next_step)
-                self.ap -= 1
+                self.move_to(next_step)
                 return
 
             # Verificar si hay fuego o humo
@@ -1129,15 +1148,13 @@ class FirefighterAgent(Agent):
 
                 # Si se apagó el fuego, moverse
                 if self.model.grid.get_node_info(self.pos)['fire'] == 0:
-                    self.model.grid.move_agent(self, next_step)
-                    self.ap -= 1
+                    self.move_to(next_step)
 
                 return
                 
             # Si la arista es un camino
             elif edge_type == 'path':
-                self.model.grid.move_agent(self, next_step)
-                self.ap -= 1
+                self.move_to(next_step)
                 return
             
             # Si la arista es una puerta
@@ -1150,8 +1167,7 @@ class FirefighterAgent(Agent):
                 
                 # Si la puerta está abierta, moverse
                 if self.model.grid.is_door_open(self.pos, next_step):
-                    self.model.grid.move_agent(self, next_step)
-                    self.ap -= 1
+                    self.move_to(next_step)
                     return
 
             # Si la arista es una pared
@@ -1237,7 +1253,7 @@ class FirefighterAgent(Agent):
 
             # Recopilar datos
             self.model.datacollector.collect(self.model)
-
+        
 # ------------- Custom Network Grid -------------
 
 class CustomNetworkGrid(NetworkGrid):
