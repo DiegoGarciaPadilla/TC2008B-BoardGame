@@ -629,15 +629,36 @@ def place_POI(G):
 
     Args:
         G (nx.Graph): Grafo con la información del tablero.
+
+    Returns:
+        tuple: Coordenadas de la celda con el punto de inter
     """
 
     # Obtener nodos interiores sin puntos de interés
-    interior_nodes = [node for node in G.nodes if G.nodes[node]['type'] == 'exterior' and G.nodes[node].get('POI') is None]
+    interior_nodes = [node for node in G.nodes if G.nodes[node]['type'] == 'interior' and G.nodes[node].get('POI') is None]
 
     # Seleccionar un nodo aleatorio
     if interior_nodes:
-        node = np.random.choice(interior_nodes)
-        add_POI(G, node[0], node[1], np.random.choice([True, False]))
+        node = interior_nodes[np.random.randint(0, len(interior_nodes))]
+        add_POI(G, node, np.random.choice([True, False]))
+
+    return node
+
+def remove_POI(G, node):
+    """
+    Eliminar un punto de interés del grafo en el nodo especificado
+
+    Args:
+        G (nx.Graph): Grafo con la información del tablero.
+        node (tuple): Coordenadas de la celda con el punto de interés.
+    """
+
+    # Verificar si la celda existe
+    if node not in G.nodes:
+        return
+    
+    # Eliminar el punto de interés
+    G.nodes[node]['POI'] = None
 
 def add_fire(G, node):
     """
@@ -760,6 +781,9 @@ def extinguish(G, node):
                     # Cambiar el peso de la arista a 4 (1 puntos para abrir la puerta y 1 punto para moverse)
                     G[node][neighbor]['weight'] = 2
 
+    else:
+        print("No hay fuego ni humo en la celda")
+
 def ignite_cell(G, node):
     """
     Colocar humo en una celda y resolver la propagación del fuego (igniciones y explosiones)
@@ -767,13 +791,16 @@ def ignite_cell(G, node):
     Args:
         G (nx.Graph): Grafo con la información del tablero.
         node (tuple): Coordenadas de la celda con humo.
+
+    Returns:
+        int: Puntos de daño causados por la ignición.
     """
 
     # Verificar si la celda existe
     if node not in G.nodes:
         return 
     
-    print(f"Ignición en {node}")
+    # print(f"Ignición en {node}")
     
     # Verificar si no hay fuego
     if G.nodes[node]['fire'] == 0:
@@ -811,7 +838,9 @@ def ignite_cell(G, node):
     # Verificar si hay fuego (Explosión)
     elif G.nodes[node]['fire'] == 2:
         # Propagar explosión
-        propagate_explosion(G, node)
+        return propagate_explosion(G, node)
+    
+    return 0
 
 def propagate_explosion(G, node):
     """
@@ -821,8 +850,13 @@ def propagate_explosion(G, node):
     Args:
         G (nx.Graph): Grafo con la información del tablero.
         node (tuple): Coordenadas de la celda con fuego.
+
+    Returns:
+        int: Puntos de daño causados por la explosión.
     """
     directions = [(0, -1), (-1, 0), (0, 1), (1, 0)]  # Izquierda, Arriba, Derecha, Abajo
+
+    dp = 0  # Puntos de daño
 
     for dx, dy in directions:
         current_x, current_y = node
@@ -846,13 +880,15 @@ def propagate_explosion(G, node):
 
                 # Reducir la vida de la pared
                 edge_data['life'] -= 1
-                print(f"Pared entre {(current_x, current_y)} y {(next_x, next_y)} dañada (vida restante: {edge_data['life']})")
+                # print(f"Pared entre {(current_x, current_y)} y {(next_x, next_y)} dañada (vida restante: {edge_data['life']})")
 
                 # Si la pared se destruye, convertirla en camino y detener propagación
                 if edge_data['life'] == 0:
                     edge_data['type'] = 'path'
                     edge_data['weight'] = 1
-                    print(f"Pared entre {(current_x, current_y)} y {(next_x, next_y)} destruida")
+                    # print(f"Pared entre {(current_x, current_y)} y {(next_x, next_y)} destruida")
+                    dp += 2  # Sumar puntos de daño
+
                 break  # Detener propagación en esta dirección
 
             # Si hay una puerta cerrada
@@ -860,19 +896,21 @@ def propagate_explosion(G, node):
                 # La puerta es destruida y convertida en un camino
                 edge_data['type'] = 'path'
                 edge_data['weight'] = 1
-                print(f"Puerta entre {(current_x, current_y)} y {(next_x, next_y)} destruida")
+                # print(f"Puerta entre {(current_x, current_y)} y {(next_x, next_y)} destruida")
                 break  # Detener propagación en esta dirección
 
             # Si la celda está vacía
             if G.nodes[(next_x, next_y)]['fire'] == 0:
                 add_fire(G, (next_x, next_y))
-                print(f"Fuego propagado a {(next_x, next_y)}")
+                # print(f"Fuego propagado a {(next_x, next_y)}")
                 break
 
             # Si ya hay fuego, continuar en la misma dirección
             elif G.nodes[(next_x, next_y)]['fire'] == 2:
                 current_x, current_y = next_x, next_y
                 continue
+
+    return dp
 
 def solve_smoke(G):
     """
@@ -1002,6 +1040,9 @@ def destroy_wall(G, node_1, node_2):
         G (nx.Graph): Grafo con la información del tablero.
         node_1 (tuple): Coordenadas de la primera celda.
         node_2 (tuple): Coordenadas de la segunda celda.
+
+    Returns:
+        int: Puntos de daño causados a la pared (0 si no se destruye, 2 si se destruye).
     """
 
     # Verificar si las celdas existen
@@ -1017,17 +1058,22 @@ def destroy_wall(G, node_1, node_2):
 
         # Reducir la vida de la pared
         G[node_1][node_2]['life'] -= 1
-        print(f"Pared entre {node_1} y {node_2} dañada (vida restante: {G[node_1][node_2]['life']})")
+        # print(f"Pared entre {node_1} y {node_2} dañada (vida restante: {G[node_1][node_2]['life']})")
 
         # Verificar si la pared se destruye
         if G[node_1][node_2]['life'] == 0:
             # Convertir la pared en un camino
             G[node_1][node_2]['type'] = 'path'
             G[node_1][node_2]['weight'] = 1
-            print(f"Pared entre {node_1} y {node_2} destruida")
+            # print(f"Pared entre {node_1} y {node_2} destruida")
+
+            # Retorna los puntos de daño
+            return 2
 
     else:
         print("No hay una pared en esa posición")
+
+    return 0
 
 def is_wall_damaged(G, node_1, node_2):
     """
