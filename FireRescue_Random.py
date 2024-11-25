@@ -634,7 +634,11 @@ def add_fire(G, node):
     # Verificar si la celda existe
     if node not in G.nodes:
         return 
-    
+
+    # Verificar que no sea una celda exterior
+    if G.nodes[node]['type'] == 'exterior':
+        return
+
     # Colocar fuego
     G.nodes[node]['fire'] = 2
 
@@ -1073,6 +1077,10 @@ class FirefighterAgent(Agent):
         # Posición actual del bombero
         self.pos = pos
 
+        # Variables de estado
+        self.is_ko = False
+        self.turns_to_revive = 1
+
         # Puntos de acción
         self.ap = 0
         self.max_ap = 4
@@ -1085,6 +1093,7 @@ class FirefighterAgent(Agent):
         """
         Mueve al bombero a una celda adyacente aleatoria.
         """
+        
         # Obtener celdas vecinas
         possible_steps = self.model.grid.get_neighbors(self.pos)
 
@@ -1114,8 +1123,8 @@ class FirefighterAgent(Agent):
             # Verificar si hay fuego o humo
             elif cell_data['fire'] > 0:
                 # Apagar el fuego o el humo
-                while self.model.grid.get_node_info(self.pos)['fire'] > 0 and self.ap > 0:
-                    extinguish(self.model.grid.graph, self.pos)
+                while self.model.grid.are_fire_or_smoke(next_step) and self.ap > 0:
+                    self.model.grid.extinguish(next_step)
                     self.ap -= 1
 
                 # Si se apagó el fuego, moverse
@@ -1134,13 +1143,13 @@ class FirefighterAgent(Agent):
             # Si la arista es una puerta
             elif edge_type == 'door':
                 # Verificar si la puerta está cerrada
-                if not is_door_open(self.model.grid.graph, self.pos, next_step):
+                if not self.model.grid.is_door_open(self.pos, next_step):
                     if self.ap >= 2:
-                        open_door(self.model.grid.graph, self.pos, next_step)
+                        self.model.grid.open_door(self.pos, next_step)
                         self.ap -= 1
                 
                 # Si la puerta está abierta, moverse
-                if is_door_open(self.model.grid.graph, self.pos, next_step):
+                if self.model.grid.is_door_open(self.pos, next_step):
                     self.model.grid.move_agent(self, next_step)
                     self.ap -= 1
                     return
@@ -1149,7 +1158,7 @@ class FirefighterAgent(Agent):
             # Solo destruir parede cuando tienen una victima, esto para evitar que se destruyan las paredes de los cuartos y pierdan siempre
             elif edge_type == 'wall' and self.carrying_victim:
                 while self.ap > 0 and self.model.grid.graph[self.pos][next_step]['life'] > 0:
-                    self.model.total_damage += destroy_wall(self.model.grid.graph, self.pos, next_step)
+                    self.model.total_damage += self.model.grid.chop_wall(self.pos, next_step)
                     self.ap -= 2
 
         # PROTECCIÓN CONTRA BUCLES INFINITOS
@@ -1160,6 +1169,14 @@ class FirefighterAgent(Agent):
         """
         Realiza una acción en el turno
         """
+
+        # Verificar si el bombero está KO
+        if self.is_ko and self.turns_to_revive > 0:
+            self.turns_to_revive -= 1
+            return
+        elif self.is_ko and self.turns_to_revive == 0:
+            self.is_ko = False
+            self.turns_to_revive = 1
 
         # Comprobar si es el turno del bombero
         if self.unique_id != self.model.turn:
@@ -1173,10 +1190,17 @@ class FirefighterAgent(Agent):
         max_iterations = 10
 
         # Turno del bombero
-        while self.ap > 0:
+        while self.ap > 0 and iteration < max_iterations:
 
             # Obtener datos de la celda actual
             cell_data = self.model.grid.get_node_info(self.pos)
+
+            # Verificar si hay fuego o humo
+            if cell_data['fire'] > 0:
+                # Apagar el fuego o el humo
+                while self.model.grid.are_fire_or_smoke(self.pos) and self.ap > 0:
+                    self.model.grid.extinguish(self.pos)
+                    self.ap -= 1
 
             # Verificar si hay un punto de interés
             if cell_data.get('POI') is not None:
@@ -1187,12 +1211,12 @@ class FirefighterAgent(Agent):
                     self.victim = self.pos
 
                     # Eliminar el punto de interés
-                    remove_POI(self.model.grid.graph, self.pos)
+                    self.model.grid.remove_POI(self.pos)
                 
                 # Si no es una víctima, es una falsa alarma
                 else:
                     # Eliminar el punto de interés
-                    remove_POI(self.model.grid.graph, self.pos)
+                    self.model.grid.remove_POI(self.pos)
                     self.model.poi.remove(self.pos)
 
             # Verificar si está en una celda exterior y está cargando una víctima
@@ -1229,6 +1253,8 @@ class CustomNetworkGrid(NetworkGrid):
         
         # Diccionario para rastrear agentes
         self.node_agents = {node: [] for node in graph.nodes()}
+
+    # --- Métodos de manipulación de agentes ---
 
     def move_agent(self, agent, node_id):
         """
@@ -1280,6 +1306,29 @@ class CustomNetworkGrid(NetworkGrid):
         self.node_agents[current_node].remove(agent)
         agent.pos = None  # Limpiar la posición del agente
 
+    def ko_agent(self, agent):
+        """
+        Mueve al agente a una celda exterior y lo marca como KO.
+        """
+
+        if agent.pos is None:
+            raise ValueError("El agente no está posicionado en ningún nodo.")
+
+        current_node = agent.pos
+
+        if current_node not in self.graph:
+            raise ValueError(f"El nodo {current_node} no existe en el grafo.")
+        
+        # Verificar si el agente está en el nodo actual
+        if agent not in self.node_agents[current_node]:
+            raise ValueError(f"El agente {agent.unique_id} no está registrado en el nodo {current_node}.")
+        
+        # Mover al agente a una celda exterior
+        exterior_node = self.get_random_exterior_node()
+        self.move_agent(agent, exterior_node)
+
+    # --- Métodos de consulta ---
+
     def is_cell_empty(self, node_id):
         """
         Verificar si un nodo está vacío (no tiene agentes).
@@ -1321,6 +1370,588 @@ class CustomNetworkGrid(NetworkGrid):
         Obtener la información de un nodo específico.
         """
         return self.graph.nodes[node_id]
+
+    def get_random_exterior_node(self):
+        """
+        Obtener un nodo exterior aleatorio para colocar los bomberos
+        """
+
+        exterior_nodes = [node for node in self.graph if self.graph.nodes[node]['type'] == 'exterior']
+        return exterior_nodes[np.random.randint(0, len(exterior_nodes))]
+
+    def is_wall_damaged(self, node_1, node_2):
+            """
+            Verificar si una pared está dañada
+
+            Args:
+                node_1 (tuple): Coordenadas de la primera celda.
+                node_2 (tuple): Coordenadas de la segunda celda.
+
+            Returns:
+                bool: True si la pared está dañada, False si está intacta.
+            """
+
+            # Verificar si las celdas existen
+            if node_1 not in self.graph.nodes or node_2 not in self.graph.nodes:
+                return False
+
+            # Verificar si hay una pared
+            if self.graph.get_edge_data(node_1, node_2)['type'] == 'wall':
+                # Verificar si la pared tiene vida
+                return self.graph[node_1][node_2]['life'] < 2
+            else:
+                return False
+
+    def is_door_open(self, node_1, node_2):
+        """
+        Verificar si una puerta está abierta
+
+        Args:
+            node_1 (tuple): Coordenadas de la primera celda.
+            node_2 (tuple): Coordenadas de la segunda celda.
+
+        Returns:
+            bool: True si la puerta está abierta, False si está cerrada.
+        """
+
+        # Verificar si las celdas existen
+        if node_1 not in self.graph.nodes or node_2 not in self.graph.nodes:
+            return False
+
+        # Verificar si hay una puerta abierta
+        return self.graph.get_edge_data(node_1, node_2)['type'] == 'door' and self.graph[node_1][node_2]['is_open']
+
+    def are_fire_or_smoke(self, node):
+        """
+        Verificar si hay fuego o humo en una celda
+
+        Args:
+            node (tuple): Coordenadas de la celda.
+
+        Returns:
+            bool: True si hay fuego o humo, False si no hay.
+        """
+        return self.graph.nodes[node]['fire'] > 0
+
+    # --- Métodos de manipulación de la red ---
+
+    def add_path(self, node_1, node_2):
+        """
+        Agregar un camino al grafo
+
+        Args:
+            node_1 (tuple): Coordenadas de la celda de inicio.
+            node_2 (tuple): Coordenadas de la celda de fin.
+        """
+
+        # Verificar si las celdas existen
+        if node_1 not in self.graph.nodes or node_2 not in self.graph.nodes:
+            return 
+
+        # Agregar el camino al grafo
+        self.graph.add_edge(node_1, node_2, type='path', weight=1)
+
+    def add_wall(self, node_1, node_2):
+        """
+        Agregar una pared al grafo
+
+        Args:
+            node_1 (tuple): Coordenadas de la celda con la pared.
+            node_2 (tuple): Coordenadas de la celda con la pared.
+        """
+
+        # Verificar si las celdas existen
+        if node_1 not in self.graph.nodes or node_2 not in self.graph.nodes:
+            return 
+
+        # Agregar la pared al grafo
+        self.graph.add_edge(node_1, node_2, type='wall', weight=5, life=2)
+
+    def add_door(self, node_1, node_2):
+        """
+        Agregar una puerta al grafo
+
+        Args:
+            node_1 (tuple): Coordenadas de la celda con la puerta.
+            node_2 (tuple): Coordenadas de la celda con la puerta.
+        """
+
+        # Verificar si las celdas existen
+        if node_1 not in self.graph.nodes or node_2 not in self.graph.nodes:
+            return 
+
+        # Agregar la puerta al grafo
+        self.graph.add_edge(node_1, node_2, type='door', weight=2, is_open=False)
+
+    def add_POI(self, node, is_victim):
+        """
+        Agregar un punto de interés al grafo en el nodo especificado
+
+        Args:
+            node (tuple): Coordenadas de la celda con el punto de interés.
+            is_victim (bool): Indica si el punto de interés es una ví
+        """
+
+        # Verificar si la celda existe
+        if node not in self.graph.nodes:
+            return
+        
+        # Borrar fuego y humo de la celda
+        self.graph.nodes[node]['fire'] = 0
+
+        # Cambiar peso de las aristas adyacentes a 1
+        for neighbor in self.graph.adj[node]:
+            if self.graph.get_edge_data(node, neighbor)['type'] == 'path':
+                self.graph[node][neighbor]['weight'] = 1
+
+        # Agregar el punto de interés
+        self.graph.nodes[node]['POI'] = is_victim
+
+    def place_POI(self):
+        """
+        Coloca un punto de interés en un nodo aleatorio del grafo
+
+        Returns:
+            tuple: Coordenadas de la celda con el punto de inter
+        """
+
+        # Obtener nodos interiores sin puntos de interés
+        interior_nodes = [node for node in self.graph.nodes if self.graph.nodes[node]['type'] == 'interior' and self.graph.nodes[node].get('POI') is None]
+
+        # Seleccionar un nodo aleatorio
+        if interior_nodes:
+            node = interior_nodes[np.random.randint(0, len(interior_nodes))]
+            self.add_POI(node, np.random.choice([True, False]))
+
+        return node
+
+    def remove_POI(self, node):
+        """
+        Eliminar un punto de interés del grafo en el nodo especificado
+
+        Args:
+            node (tuple): Coordenadas de la celda con el punto de interés.
+        """
+
+        # Verificar si la celda existe
+        if node not in self.graph.nodes:
+            return
+        
+        # Eliminar el punto de interés
+        self.graph.nodes[node]['POI'] = None
+
+    def add_fire(self, node):
+        """
+        Agregar fuego a una celda del grafo y cambiar el peso de las aristas adyacentes
+
+        Args:
+            node (tuple): Coordenadas de la celda con fuego.
+        """
+
+        # Verificar si la celda existe
+        if node not in self.graph.nodes:
+            return 
+        
+        # Verificar que no sea una celda exterior
+        if self.graph.nodes[node]['type'] == 'exterior':
+            return
+        
+        # Colocar fuego
+        self.graph.nodes[node]['fire'] = 2
+
+        # Verificar si hay un punto de interés
+        if self.graph.nodes[node].get('POI') is not None:
+            # Verificar si es una víctima
+            if self.graph.nodes[node]['POI']:
+                self.model.victims_dead += 1
+
+            # Eliminar el punto de interés
+            self.remove_POI(node)
+            self.model.poi.remove(node)
+        
+        # Verificar si hay bomberos en la celda
+        for agent in self.node_agents[node]:
+            
+            # Verificar si el bombero está cargando una víctima
+            if agent.carrying_victim:
+                agent.carrying_victim = False
+                agent.victim = None
+                self.model.victims_dead += 1
+
+            # KO al bombero
+            self.ko_agent(agent)
+
+        # Cambia el peso de las aristas adyacentes
+        # Path: 2 puntos para apagar el fuego y 1 punto para moverse
+        # Wall: 4 para tirar la pared, 2 para apagar el fuego y 1 para moverse
+        # Door: Variable (3 o 4 puntos dependiendo de si está abierta o cerrada)
+        for neighbor in self.graph.adj[node]:
+            if self.graph.get_edge_data(node, neighbor)['type'] == 'path':
+                self.graph[node][neighbor]['weight'] = 3
+            elif self.graph.get_edge_data(node, neighbor)['type'] == 'wall':
+                self.graph[node][neighbor]['weight'] = 7
+            elif self.graph.get_edge_data(node, neighbor)['type'] == 'door':
+                if self.is_door_open(node, neighbor):
+                    # Cambiar el peso de la arista a 3 (2 puntos para apagar el fuego y 1 punto para moverse)
+                    self.graph[node][neighbor]['weight'] = 3 
+                else:
+                    # Cambiar el peso de la arista a 4 (1 puntos para abrir la puerta, 2 puntos para apagar el fuego y 1 punto para moverse)
+                    self.graph[node][neighbor]['weight'] = 4
+
+    def add_smoke(self, node):
+        """
+        Agregar humo a una celda del grafo
+
+        Args:
+            node (tuple): Coordenadas de la celda con humo.
+        """
+
+        # Verificar si la celda existe
+        if node not in self.graph.nodes:
+            return 
+        
+        # Colocar humo
+        self.graph.nodes[node]['fire'] = 1
+
+        # Cambia el peso de las aristas adyacentes
+        # Path: 1 puntos para apagar el humo y 1 punto para moverse
+        # Wall: 4 para tirar la pared, 1 para apagar el humo y 1 para moverse
+        # Door: Variable (2 o 3 puntos dependiendo de si está abierta o cerrada)
+        for neighbor in self.graph.adj[node]:
+            if self.graph.get_edge_data(node, neighbor)['type'] == 'path':
+                self.graph[node][neighbor]['weight'] = 2
+            elif self.graph.get_edge_data(node, neighbor)['type'] == 'wall':
+                self.graph[node][neighbor]['weight'] = 6
+            elif self.graph.get_edge_data(node, neighbor)['type'] == 'door':
+                if self.is_door_open(node, neighbor):
+                # Cambiar el peso de la arista a 3 (1 puntos para apagar el humo y 1 punto para moverse)
+                    self.graph[node][neighbor]['weight'] = 2
+                else:
+                # Cambiar el peso de la arista a 4 (1 puntos para abrir la puerta, 1 puntos para apagar el humo y 1 punto para moverse)
+                    self.graph[node][neighbor]['weight'] = 3
+
+    def extinguish(self, node):
+        """
+        Convertir el fuego en humo, y el humo en nada
+
+        Args:
+            node (tuple): Coordenadas de la celda a extingu
+        """
+
+        # Verificar si la celda existe
+        if node not in self.graph.nodes:
+            return 
+        
+        # Verificar si hay fuego
+        if self.graph.nodes[node]['fire'] == 2:
+            self.graph.nodes[node]['fire'] = 1  # Convertir fuego en humo
+
+            # Cambia el peso de las aristas adyacentes
+            # Path: 1 puntos para apagar el humo y 1 punto para moverse
+            # Wall: 4 para tirar la pared, 1 para apagar el humo y 1 para moverse
+            # Door: Variable (2 o 3 puntos dependiendo de si está abierta o cerrada)
+            for neighbor in self.graph.adj[node]:
+                if self.graph.get_edge_data(node, neighbor)['type'] == 'path':
+                    self.graph[node][neighbor]['weight'] = 2
+                elif self.graph.get_edge_data(node, neighbor)['type'] == 'wall':
+                    self.graph[node][neighbor]['weight'] = 6
+                elif self.graph.get_edge_data(node, neighbor)['type'] == 'door':
+                    if self.is_door_open(node, neighbor):
+                        # Cambiar el peso de la arista a 2 (1 puntos para apagar el humo y 1 punto para moverse)
+                        self.graph[node][neighbor]['weight'] = 2
+                    else:
+                        # Cambiar el peso de la arista a 3 (1 puntos para abrir la puerta, 1 puntos para apagar el humo y 1 punto para moverse)
+                        self.graph[node][neighbor]['weight'] = 3
+
+        # Verificar si hay humo
+        elif self.graph.nodes[node]['fire'] == 1:
+            self.graph.nodes[node]['fire'] = 0  # Convertir humo en nada
+
+            # Cambia el peso de las aristas adyacentes
+            # Path: 1 punto para moverse
+            # Wall: 4 para tirar la pared y 1 para moverse
+            # Door: Variable (2 o 1 puntos dependiendo de si está abierta o cerrada)
+            for neighbor in self.graph.adj[node]:
+                if self.graph.get_edge_data(node, neighbor)['type'] == 'path':
+                    self.graph[node][neighbor]['weight'] = 1
+                elif self.graph.get_edge_data(node, neighbor)['type'] == 'wall':
+                    self.graph[node][neighbor]['weight'] = 5
+                elif self.graph.get_edge_data(node, neighbor)['type'] == 'door':
+                    if self.is_door_open(node, neighbor):
+                        # Cambiar el peso de la arista a 1 (1 punto para moverse)
+                        self.graph[node][neighbor]['weight'] = 1
+                    else:
+                        # Cambiar el peso de la arista a 4 (1 puntos para abrir la puerta y 1 punto para moverse)
+                        self.graph[node][neighbor]['weight'] = 2
+
+        else:
+            print("No hay fuego ni humo en la celda")
+
+    def ignite_cell(self, node):
+        """
+        Colocar humo en una celda y resolver la propagación del fuego (igniciones y explosiones)
+
+        Args:
+            node (tuple): Coordenadas de la celda con humo.
+
+        Returns:
+            int: Puntos de daño causados por la ignición.
+        """
+
+        # Verificar si la celda existe
+        if node not in self.graph.nodes:
+            return 
+        
+        # print(f"Ignición en {node}")
+        
+        # Verificar si no hay fuego
+        if self.graph.nodes[node]['fire'] == 0:
+            self.graph.nodes[node]['fire'] = 1  # Colocar humo
+
+        # Verificar si hay humo (Ignición)
+        elif self.graph.nodes[node]['fire'] == 1:
+            # Convertir el humo en fuego
+            self.add_fire(node)
+
+            # Obtener los vecinos de la celda
+            neighbors = self.graph.adj[node]
+
+            # Verificar si hay humo en los vecinos
+            for neighbor in neighbors:
+                # Verificar si hay humo y no hay una pared bloqueante 
+                if self.graph.nodes[neighbor]['fire'] == 1 and self.graph.get_edge_data(node, neighbor)['type'] != 'wall':
+                    # Verificar si hay una puerta
+                    if self.graph.get_edge_data(node, neighbor)['type'] == 'door':
+                        # Convertir humo en fuego recursivamente
+                        self.ignite_cell(neighbor)
+
+                        # Verificar si la puerta está abierta
+                        if is_door_open(G, node, neighbor):
+                            # Cambiar el peso de la arista a 3 (2 puntos para apagar el fuego y 1 punto para moverse)
+                            self.graph[node][neighbor]['weight'] = 3 
+                        else:
+                            # Cambiar el peso de la arista a 4 (1 puntos para abrir la puerta, 2 puntos para apagar el fuego y 1 punto para moverse)
+                            self.graph[node][neighbor]['weight'] = 4
+                            
+                    # Si no hay puerta, verificar si hay un camino
+                    elif self.graph.get_edge_data(node, neighbor)['type'] == 'path':
+                        self.ignite_cell(neighbor)  # Convertir humo en fuego recursivamente
+
+        # Verificar si hay fuego (Explosión)
+        elif self.graph.nodes[node]['fire'] == 2:
+            # Propagar explosión
+            return self.propagate_explosion(node)
+        
+        return 0
+
+    def propagate_explosion(self, node):
+        """
+        Expande el fuego en forma de cruz desde una celda con fuego.
+        Sigue expandiéndose hasta encontrar una celda vacía, una pared, una puerta cerrada o un borde del tablero.
+
+        Args:
+            node (tuple): Coordenadas de la celda con fuego.
+
+        Returns:
+            int: Puntos de daño causados por la explosión.
+        """
+        directions = [(0, -1), (-1, 0), (0, 1), (1, 0)]  # Izquierda, Arriba, Derecha, Abajo
+
+        dp = 0  # Puntos de daño
+
+        for dx, dy in directions:
+            current_x, current_y = node
+
+            while True:
+                # Calcular la siguiente celda en la dirección
+                next_x, next_y = current_x + dx, current_y + dy
+
+                # Verificar si la celda es válida
+                if (next_x, next_y) not in self.graph.nodes:
+                    break
+
+                edge_data = self.graph.get_edge_data((current_x, current_y), (next_x, next_y))
+                if not edge_data:  # Sin conexión (fuera del tablero o bloqueado)
+                    break
+
+                # Si hay una pared
+                if edge_data['type'] == 'wall':
+                    if 'life' not in edge_data:
+                        edge_data['life'] = 2  # Inicializar vida de la pared
+
+                    # Reducir la vida de la pared
+                    edge_data['life'] -= 1
+                    # print(f"Pared entre {(current_x, current_y)} y {(next_x, next_y)} dañada (vida restante: {edge_data['life']})")
+
+                    # Si la pared se destruye, convertirla en camino y detener propagación
+                    if edge_data['life'] == 0:
+                        edge_data['type'] = 'path'
+                        edge_data['weight'] = 1
+                        # print(f"Pared entre {(current_x, current_y)} y {(next_x, next_y)} destruida")
+                        dp += 2  # Sumar puntos de daño
+
+                    break  # Detener propagación en esta dirección
+
+                # Si hay una puerta cerrada
+                if edge_data['type'] == 'door' and not self.is_door_open((current_x, current_y), (next_x, next_y)):
+                    # La puerta es destruida y convertida en un camino
+                    edge_data['type'] = 'path'
+                    edge_data['weight'] = 1
+                    # print(f"Puerta entre {(current_x, current_y)} y {(next_x, next_y)} destruida")
+                    break  # Detener propagación en esta dirección
+
+                # Si la celda está vacía
+                if self.graph.nodes[(next_x, next_y)]['fire'] == 0:
+                    self.add_fire((next_x, next_y))
+                    # print(f"Fuego propagado a {(next_x, next_y)}")
+                    break
+
+                # Si ya hay fuego, continuar en la misma dirección
+                elif self.graph.nodes[(next_x, next_y)]['fire'] == 2:
+                    current_x, current_y = next_x, next_y
+                    continue
+
+        return dp
+
+    def solve_smoke(self):
+        """
+        Al final de cada turno, todo el humo en contacto con el fuego se convierte en fuego.
+
+        Args:
+        """
+
+        for node in self.graph.nodes():
+            if self.graph.nodes[node]['fire'] == 1:
+                for neighbor in self.graph.adj[node]:
+                    # Verificar si hay fuego en los vecinos y no hay una pared bloqueante
+                    if self.graph.nodes[neighbor]['fire'] == 2 and self.graph.get_edge_data(node, neighbor)['type'] != 'wall':
+                        # Verificar si hay una puerta y si está abierta
+                        if self.graph.get_edge_data(node, neighbor)['type'] == 'door' and is_door_open(G, node, neighbor):
+                            self.add_fire(node)
+                        # Si no hay puerta, verificar si hay un camino
+                        elif self.graph.get_edge_data(node, neighbor)['type'] == 'path':
+                            self.add_fire(node)
+
+    def shortest_path(self, start, end):
+        """
+        Encontrar el camino más corto entre dos nodos con el algoritmo de Dijkstra
+
+        Args:
+            start (tuple): Coordenadas del nodo de inicio.
+            end (tuple): Coordenadas del nodo de fin.
+
+        Returns:
+            dict: Diccionario con el camino más corto y el peso total del camino.
+        """
+
+        # Verificar si los nodos existen
+        if start not in self.graph.nodes or end not in self.graph.nodes:
+            return None
+
+        # Calcular el camino más corto
+        path = nx.shortest_path(self.graph, source=start, target=end, weight='weight')
+
+        # Calcula el peso total del camino
+        total_weight = 0
+        for i in range(len(path) - 1):
+            total_weight += self.graph.get_edge_data(path[i], path[i + 1])['weight']
+
+        # Crear un diccionario con la información del camino más corto
+        shortest = {}
+        shortest['path'] = path
+        shortest['total_weight'] = total_weight
+
+        return shortest
+
+    def open_door(self, node_1, node_2):
+        """
+        Abrir una puerta
+
+        Args:
+            node_1 (tuple): Coordenadas de la primera celda.
+            node_2 (tuple): Coordenadas de la segunda celda.
+        """
+
+        # Verificar si las celdas existen
+        if node_1 not in self.graph.nodes or node_2 not in self.graph.nodes:
+            return 
+
+        # Verificar si hay una puerta cerrada
+        if not self.is_door_open(node_1, node_2):
+            # Abrir la puerta
+            self.graph[node_1][node_2]['is_open'] = True
+
+            # Cambiar el peso de la arista a 1
+            self.graph[node_1][node_2]['weight'] = 1
+        else:
+            print("No hay una puerta cerrada en esa posición")
+
+    def close_door(self, node_1, node_2):
+        """
+        Cerrar una puerta
+
+        Args:
+            node_1 (tuple): Coordenadas de la primera celda.
+            node_2 (tuple): Coordenadas de la segunda celda.
+        """
+
+        # Verificar si las celdas existen
+        if node_1 not in self.graph.nodes or node_2 not in self.graph.nodes:
+            return 
+
+        # Verificar si hay una puerta abierta
+        if self.is_door_open(node_1, node_2):
+            # Cerrar la puerta
+            self.graph[node_1][node_2]['is_open'] = False
+
+            # Cambiar el peso de la arista a 2
+            self.graph[node_1][node_2]['weight'] = 2
+        else:
+            print("No hay una puerta abierta en esa posición")
+
+    def chop_wall(self, node_1, node_2):
+        """
+        Dañar una pared. Si la vida de la pared llega a 0, se convierte en un camino.
+
+        Args:
+            node_1 (tuple): Coordenadas de la primera celda.
+            node_2 (tuple): Coordenadas de la segunda celda.
+
+        Returns:
+            int: Puntos de daño causados a la pared (0 si no se destruye, 2 si se destruye).
+        """
+
+        # Verificar si las celdas existen
+        if node_1 not in self.graph.nodes or node_2 not in self.graph.nodes:
+            return 
+
+        # Verificar si hay una pared
+        if self.graph.get_edge_data(node_1, node_2)['type'] == 'wall':
+            
+            # Verificar si la pared tiene vida
+            if 'life' not in self.graph.get_edge_data(node_1, node_2):
+                self.graph[node_1][node_2]['life'] = 2
+
+            # Reducir la vida de la pared
+            self.graph[node_1][node_2]['life'] -= 1
+            # print(f"Pared entre {node_1} y {node_2} dañada (vida restante: {self.graph[node_1][node_2]['life']})")
+
+            # Verificar si la pared se destruye
+            if self.graph[node_1][node_2]['life'] == 0:
+                # Convertir la pared en un camino
+                self.graph[node_1][node_2]['type'] = 'path'
+                self.graph[node_1][node_2]['weight'] = 1
+                # print(f"Pared entre {node_1} y {node_2} destruida")
+
+                # Retorna los puntos de daño
+                return 2
+
+        else:
+            print("No hay una pared en esa posición")
+
+        return 0
+
+    # --- Métodos de creación de JSON ---
 
     def build_json(self):
         """
@@ -1430,7 +2061,7 @@ class CustomNetworkGrid(NetworkGrid):
                 })
 
         return json_data
-
+    
 # ------------- Modelo -------------
 
 class BoardModel(Model):
@@ -1486,7 +2117,7 @@ class BoardModel(Model):
         # Agregar agentes al modelo
         i = 0
         while i < 6:
-            node = self.get_random_exterior_node()
+            node = self.grid.get_random_exterior_node()
             # Verificar si el nodo no está ocupado
             if self.grid.is_cell_empty(node):
                 # Crear un agente bombero
@@ -1531,17 +2162,17 @@ class BoardModel(Model):
         self.schedule.step()
 
         # Resolver el humo
-        solve_smoke(self.grid.graph)
+        self.grid.solve_smoke()
 
         # Ignición aleatoria
         x, y = np.random.randint(1, 8), np.random.randint(1, 6)
 
         # Ignición en la celda aleatoria
-        self.total_damage += ignite_cell(self.grid.graph, (y, x))
+        self.total_damage += self.grid.ignite_cell((y, x))
 
         # Si hay menos de 3 puntos de interés, agregar uno
         while len(self.poi) < 3:
-            node = place_POI(self.grid.graph)
+            node = self.grid.place_POI()
             self.poi.append(node)
 
         # Verificar si el juego ha terminado
@@ -1549,19 +2180,14 @@ class BoardModel(Model):
             self.running = False
             self.win = self.win_condition()
 
+            # Capturar el estado final
+            self.datacollector.collect(self)
+
         # Incrementar el turno
         if not self.game_over() and self.steps < 100:
             self.steps += 1
             self.turn = self.steps % 6
 
-    def get_random_exterior_node(self):
-        """
-        Obtener un nodo exterior aleatorio para colocar los bomberos
-        """
-
-        exterior_nodes = [node for node in self.grid.graph if self.grid.graph.nodes[node]['type'] == 'exterior']
-        return exterior_nodes[np.random.randint(0, len(exterior_nodes))]
-    
 # ------------- Simulación -------------
 
 # Inicializar el grafo
