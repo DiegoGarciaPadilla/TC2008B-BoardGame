@@ -1211,6 +1211,9 @@ class FirefighterAgent(Agent):
             # PROTECCIÓN CONTRA BUCLES INFINITOS
             iteration += 1
 
+            # Recopilar datos
+            self.model.datacollector.collect(self.model)
+
 # ------------- Custom Network Grid -------------
 
 class CustomNetworkGrid(NetworkGrid):
@@ -1545,9 +1548,6 @@ class BoardModel(Model):
         if self.game_over():
             self.running = False
             self.win = self.win_condition()
-
-        # Recopilar datos
-        self.datacollector.collect(self)
 
         # Incrementar el turno
         if not self.game_over() and self.steps < 100:
