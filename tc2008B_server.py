@@ -5,7 +5,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import logging
 import json
-from FireRescue import read_board_config, initialize_board, graph_to_json
+from FireRescue_Random import read_board_config, initialize_board, BoardModel
 
 """
 Clase Server hereda de BaseHTTPRequestHandler, clase que maneja las 
@@ -28,7 +28,29 @@ class Server(BaseHTTPRequestHandler):
         self._set_response()
         board_config = read_board_config()
         G = initialize_board(board_config)
-        board_json = graph_to_json(board_config, G)
+        model = BoardModel(G, board_config)
+
+        """
+        # 1 PASO DE SIMULACION
+        model.step()
+
+        # Obtener el estado del tablero
+        board_json = model.grid.build_json()
+
+        self.wfile.write(json.dumps(board_json).encode('utf-8'))
+        """
+
+        # SIMULACION COMPLETA
+        while model.running:
+            model.step()
+
+        # Obtener datos de la simulacion
+        data = model.datacollector.get_model_vars_dataframe()['Board State'].to_list()
+
+        response = {"boardStates" : data}
+
+        # Convertir a JSON
+        board_json = json.dumps(response)
         self.wfile.write(board_json.encode('utf-8'))
 
     """
