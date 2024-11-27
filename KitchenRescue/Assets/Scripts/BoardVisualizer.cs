@@ -12,6 +12,8 @@ public class BoardVisualizer : MonoBehaviour
     public GameObject firePrefab;
     public GameObject smokePrefab;
     public GameObject poiPrefab;
+    public GameObject victimPrefab;
+    public GameObject falseAlarmPrefab;
 
     public GameObject blueAgentPrefab;
     public GameObject greenAgentPrefab;
@@ -148,6 +150,13 @@ public class BoardVisualizer : MonoBehaviour
                     GameObject agentObject = Instantiate(agentPrefab, position, Quaternion.identity);
                     instantiatedObjects.Add(agentObject);
                     Debug.Log($"Agente {agent.id} en posición [{agent.position[0]}, {agent.position[1]}], con coordenadas {position}");
+
+                    // Si el agente está cargando un POI, instanciarlo
+                    if (agent.carrying_victim)
+                    {
+                        GameObject victimObject = Instantiate(victimPrefab, position, Quaternion.identity);
+                        instantiatedObjects.Add(victimObject);
+                    }
                 }
                 else
                 {
@@ -188,10 +197,29 @@ public class BoardVisualizer : MonoBehaviour
             foreach (var poi in boardState.points_of_interest)
             {
                 Vector3 position = new Vector3(poi.position[1] * cellSize, 1.6f, -poi.position[0] * cellSize);
-                GameObject poiObject = Instantiate(poiPrefab, position, Quaternion.identity);
-                instantiatedObjects.Add(poiObject);
-                
-                Debug.Log($"Punto de interés en posición [{poi.position[0]}, {poi.position[1]}], tipo: {poi.type}, con coordenadas {position}");
+                bool agentFound = false;
+
+                // Verificar si hay un agente en la misma celda que el POI
+                foreach (var agent in boardState.agents)
+                {
+                    if (agent.position[0] == poi.position[0] && agent.position[1] == poi.position[1])
+                    {
+                        GameObject poiPrefabToInstantiate = poi.type == "victim" ? victimPrefab : falseAlarmPrefab;
+                        GameObject poiInstance = Instantiate(poiPrefabToInstantiate, position, Quaternion.identity);
+                        instantiatedObjects.Add(poiInstance);
+                        Debug.Log($"Instanciado {poi.type} en posición [{poi.position[0]}, {poi.position[1]}] con coordenadas {position}");
+                        agentFound = true;
+                        break;
+                    }
+                }
+
+                // Si no hay un agente en la posición del POI, instanciar el prefab poiPrefab
+                if (!agentFound)
+                {
+                    GameObject poiObject = Instantiate(poiPrefab, position, Quaternion.identity);
+                    instantiatedObjects.Add(poiObject);
+                    Debug.Log($"Punto de interés en posición [{poi.position[0]}, {poi.position[1]}], tipo: {poi.type}, con coordenadas {position}");
+                }
             }
         }
     }

@@ -130,6 +130,7 @@ public class Agent
 {
     public int id;
     public List<int> position;
+    public bool carrying_victim;
 }
 
 [System.Serializable]

@@ -5,7 +5,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import logging
 import json
-from FireRescue_Random import read_board_config, initialize_board, BoardModel
+from FireRescue_Strategic import read_board_config, initialize_board, BoardModel
 
 """
 Clase Server hereda de BaseHTTPRequestHandler, clase que maneja las 
