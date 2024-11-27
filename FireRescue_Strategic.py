@@ -1,8 +1,8 @@
+
 # # Flash Point: Fire Rescue
 
 # ## Instalación e importación de librerías
-
-# %%
+# Descargar e instalar mesa, seaborn y plotly
 # Importamos las clases que se requieren para manejar los agentes (Agent) y su entorno (Model).
 # Cada modelo puede contener múltiples agentes.
 from mesa import Agent, Model
@@ -1384,7 +1384,7 @@ class CustomAgent(Agent):
             if cell_data['fire'] > 0:
                 
                 # Apagar el fuego o el humo
-                if self.model.grid.are_fire_or_smoke(dest) > 0 and self.ap > 0:
+                while self.model.grid.are_fire_or_smoke(dest) > 0 and self.ap > 0:
                     self.model.grid.extinguish(dest)
                     self.ap -= 1
                 
@@ -1411,7 +1411,7 @@ class CustomAgent(Agent):
                 if cell_data['fire'] > 0:
                     
                     # Apagar el fuego o el humo
-                    if self.model.grid.are_fire_or_smoke(dest) > 0 and self.ap > 0:
+                    while self.model.grid.are_fire_or_smoke(dest) > 0 and self.ap > 0:
                         self.model.grid.extinguish(dest)
                         self.ap -= 1
 
@@ -1466,9 +1466,6 @@ class CustomAgent(Agent):
                 self.victim = None
                 self.model.change_roles = True
                 self.model.update_POIs()
-
-                # Resetear el camino
-                self.path = []
 
             # Dirigirse a la salida más cercana
             else:
@@ -1549,7 +1546,7 @@ class CustomAgent(Agent):
         while self.ap > 0 and iteration < max_iterations:
 
             # Verificar si el bombero está en una celda con fuego
-            if self.model.grid.are_fire_or_smoke(self.pos) > 0 and self.ap > 0:
+            while self.model.grid.are_fire_or_smoke(self.pos) > 0 and self.ap > 0:
                 self.model.grid.extinguish(self.pos)
                 self.ap -= 1
 
@@ -1580,6 +1577,21 @@ class CustomAgent(Agent):
                 self.model.grid.remove_POI(self.pos)
                 self.model.poi.remove(self.pos)
                 self.model.update_POIs()
+
+            # Recopilar datos
+            self.model.datacollector.collect(self.model)
+
+        # Verificar si el bombero lleva una víctima
+        if self.carrying_victim and self.model.grid.is_exterior(self.pos):
+
+            # Salvar a la víctima
+            self.model.poi.remove(self.victim) if self.victim in self.model.poi else None
+            self.model.victims_in_rescue.remove(self.victim)
+            self.model.victims_rescued += 1
+            self.carrying_victim = False
+            self.victim = None
+            self.model.change_roles = True
+            self.model.update_POIs()
 
             # Recopilar datos
             self.model.datacollector.collect(self.model)
@@ -1996,7 +2008,7 @@ class CustomNetworkGrid(NetworkGrid):
         # Agregar el punto de interés
         self.graph.nodes[node]['POI'] = is_victim
 
-    def place_POI(self):
+    def place_POI(self, is_victim):
         """
         Coloca un punto de interés en un nodo aleatorio del grafo
 
@@ -2010,7 +2022,7 @@ class CustomNetworkGrid(NetworkGrid):
         # Seleccionar un nodo aleatorio
         if interior_nodes:
             node = interior_nodes[np.random.randint(0, len(interior_nodes))]
-            self.add_POI(node, np.random.choice([True, False]))
+            self.add_POI(node, is_victim)
 
         return node
 
@@ -2057,13 +2069,13 @@ class CustomNetworkGrid(NetworkGrid):
             # Eliminar el punto de interés
             self.remove_POI(node)
             self.model.poi.remove(node) if node in self.model.poi else None
-            self.model.victims_dead += 1
         
         # Verificar si hay bomberos en la celda
         for agent in self.node_agents[node]:
             
             # Verificar si el bombero está cargando una víctima
             if agent.carrying_victim:
+                self.model.poi.remove(agent.victim) if agent.victim in self.model.poi else None
                 agent.carrying_victim = False
                 agent.victim = None
                 self.model.victims_dead += 1
@@ -2312,11 +2324,11 @@ class CustomNetworkGrid(NetworkGrid):
 
         for node in self.graph.nodes():
             if self.graph.nodes[node]['fire'] == 1:
-                for neighbor in self.graph.adj[node]:
+                for neighbor in self.get_neighbors(node):
                     # Verificar si hay fuego en los vecinos y no hay una pared bloqueante
                     if self.graph.nodes[neighbor]['fire'] == 2 and self.graph.get_edge_data(node, neighbor)['type'] != 'wall':
                         # Verificar si hay una puerta y si está abierta
-                        if self.graph.get_edge_data(node, neighbor)['type'] == 'door' and is_door_open(G, node, neighbor):
+                        if self.graph.get_edge_data(node, neighbor)['type'] == 'door' and self.is_door_open(node, neighbor):
                             self.add_fire(node)
                         # Si no hay puerta, verificar si hay un camino
                         elif self.graph.get_edge_data(node, neighbor)['type'] == 'path':
@@ -2522,7 +2534,6 @@ class CustomNetworkGrid(NetworkGrid):
 
         return json_data
 
-# %%
 class BoardModel(Model):
     """
     Modelo del tablero de juego
@@ -2541,6 +2552,12 @@ class BoardModel(Model):
 
         # Inicializar el modelo
         self.schedule = SimultaneousActivation(self)
+
+        # POIs
+        self.max_victims = 10
+        self.max_false_alarms = 5
+        self.victims_created = 0
+        self.false_alarms_created = 0
 
         # Ubicar los puntos de interés en el tablero
         self.poi = []
@@ -2595,59 +2612,93 @@ class BoardModel(Model):
         Si hay menos de 3 puntos de interés, agregar uno
         """
 
+        def get_is_victim():
+            """
+            Determinar si el nuevo punto de interés es una víctima o una falsa alarma
+            """
+
+            is_victim = False
+
+            # Obtener la cantidad de víctimas y falsas alarmas
+            if self.max_victims > 0 and self.max_false_alarms > 0:
+                is_victim = np.random.choice([True, False])
+                if is_victim:
+                    self.max_victims -= 1
+                else:
+                    self.max_false_alarms -= 1
+            elif self.max_victims > 0:
+                is_victim = True
+                self.max_victims -= 1
+            elif self.max_false_alarms > 0:
+                is_victim = False
+                self.max_false_alarms -= 1
+
+            return is_victim
+            
+
         while len(self.poi) < 3:
-            node = self.grid.place_POI()
+            node = self.grid.place_POI(get_is_victim())
             self.poi.append(node)
             self.change_roles = True
 
     def change_agents_role(self):
         """
-        Cambiar el rol de los agentes basándose en las condiciones del tablero y la estrategia de equilibrio.
+        Cambiar el rol de los agentes basándose en la cantidad de fuego, la densidad en el tablero y los puntos de interés restantes.
         """
 
         total_agents = len(self.schedule.agents)
         available_rescuers = len(self.poi) - len(self.victims_in_rescue)
+        fire_cells = len(self.grid.get_fire_nodes())  # Total de celdas con fuego
         max_firefighters = total_agents - available_rescuers
 
-        # Ajustar la estrategia basada en el daño total
-        if self.total_damage >= 20:  # Alta prioridad a bomberos si el daño es crítico
+        # Ajustar estrategia en función de la densidad de fuego
+        fire_density = fire_cells / self.grid.graph.number_of_nodes()
+
+        if fire_density > 0.25:  # Alta densidad de fuego
             max_firefighters = max(total_agents - 1, 0)
-        elif self.total_damage <= 10:  # Alta prioridad a rescatistas si el daño es bajo
+        elif fire_density < 0.1:  # Baja densidad de fuego
             max_firefighters = max(total_agents - available_rescuers, 1)
+        else:  # Densidad moderada
+            max_firefighters = total_agents // 2
 
         # Inicializar contadores
         current_firefighters = 0
         current_rescuers = 0
 
-        # Ordenar agentes por proximidad a POIs
-        distances = {}
+        # Ordenar agentes por proximidad a POIs o celdas con fuego
+        distances_to_POIs = {}
+        distances_to_fire = {}
+
         for agent in self.schedule.agents:
             if agent.carrying_victim:
                 agent.role = 0  # Rescatista
             else:
-                # Obtener la distancia al POI más cercano
+                # Calcular distancia al POI más cercano
                 closest_POI = agent.find_closest_POI()
-                distances[agent.unique_id] = closest_POI['total_weight'] if closest_POI else float('inf')
+                distances_to_POIs[agent.unique_id] = closest_POI['total_weight'] if closest_POI else float('inf')
 
-        # Ordenar agentes por distancia más corta a los POIs
-        distances = dict(sorted(distances.items(), key=lambda item: item[1]))
+                # Calcular distancia a la celda con fuego más cercana
+                closest_fire = agent.find_closest_fire()
+                distances_to_fire[agent.unique_id] = closest_fire['total_weight'] if closest_fire else float('inf')
 
-        # Asignar roles a agentes según las prioridades
-        for agent_id in distances.keys():
-            agent = self.schedule.agents[agent_id]
+        # Ordenar agentes según prioridad: Rescatistas primero, luego bomberos
+        sorted_POIs = dict(sorted(distances_to_POIs.items(), key=lambda item: item[1]))
+        sorted_fires = dict(sorted(distances_to_fire.items(), key=lambda item: item[1]))
+
+        # Asignar roles a rescatistas
+        for agent_id in sorted_POIs.keys():
             if current_rescuers < available_rescuers:
-                agent.role = 0  # Asignar como rescatista
+                self.schedule.agents[agent_id].role = 0  # Rescatista
                 current_rescuers += 1
-            elif current_firefighters < max_firefighters:
-                agent.role = 1  # Asignar como bombero
+
+        # Asignar roles a bomberos
+        for agent_id in sorted_fires.keys():
+            if current_firefighters < max_firefighters:
+                self.schedule.agents[agent_id].role = 1  # Bombero
                 current_firefighters += 1
-            else:
-                # Si se ha alcanzado el límite de bomberos y rescatistas, mantener el rol actual
-                pass
 
         # Reiniciar la variable de cambio de roles
         self.change_roles = False
-
 
 
 
@@ -2669,14 +2720,14 @@ class BoardModel(Model):
         # Ejecutar el paso de los agentes
         self.schedule.step()
 
-        # Resolver el humo
-        # self.grid.solve_smoke()
-
         # Ignición aleatoria
         x, y = np.random.randint(1, 8), np.random.randint(1, 6)
 
         # Ignición en la celda aleatoria
         self.total_damage += self.grid.ignite_cell((y, x))
+
+        # Resolver el humo
+        #self.grid.solve_smoke()
 
         # Si hay menos de 3 puntos de interés, agregar uno
         self.update_POIs()
@@ -2703,8 +2754,8 @@ class BoardModel(Model):
             elif agent.role == 1:
                 firefighters += 1
 
-        # print (f"Turno: {self.steps}, Rescatistas: {rescuers}, Bomberos: {firefighters}, Daño total: {self.total_damage}, Víctimas rescatadas: {self.victims_rescued}, Víctimas fallecidas: {self.victims_dead}")
-        # print(f"Turno {self.steps} - POI restantes: {len(self.poi) - len(self.victims_in_rescue)} - Victimas en rescate: {len(self.victims_in_rescue)}")
+        print (f"Turno: {self.steps}, Rescatistas: {rescuers}, Bomberos: {firefighters}, Daño total: {self.total_damage}, Víctimas rescatadas: {self.victims_rescued}, Víctimas fallecidas: {self.victims_dead}")
+        print(f"POI restantes: {len(self.poi) - len(self.victims_in_rescue)} - Victimas en rescate: {len(self.victims_in_rescue)}")
 
     def win_condition(self):
         """
@@ -2727,11 +2778,6 @@ class BoardModel(Model):
 
         return self.win_condition() or self.lose_condition()
     
-
-# %% [markdown]
-# ## Testing
-
-# %%
 # Inicializar el grafo
 G = initialize_board(board_config)
 
@@ -2749,7 +2795,6 @@ print("Daño total:", model.total_damage)
 print("Víctimas rescatadas:", model.victims_rescued)
 print("Víctimas fallecidas:", model.victims_dead)
 
-# %%
 board_states = model.datacollector.get_model_vars_dataframe()['Board State'].tolist()
 
 out = json.dumps(board_states)

@@ -15,29 +15,9 @@ public class BoardVisualizer : MonoBehaviour
     public GameObject victimPrefab;
     public GameObject falseAlarmPrefab;
 
-    public GameObject blueAgentPrefab;
-    public GameObject greenAgentPrefab;
-    public GameObject redAgentPrefab;
-    public GameObject orangeAgentPrefab;
-    public GameObject yellowAgentPrefab;
-    public GameObject lilaAgentPrefab;
+    public AgentVisualizer agentVisualizer;
 
-    private Dictionary<int, GameObject> agentPrefabs;
     private List<GameObject> instantiatedObjects = new List<GameObject>();
-
-    void Start()
-    {
-        // Inicializar el diccionario de prefabs
-        agentPrefabs = new Dictionary<int, GameObject>
-        {
-            { 0, blueAgentPrefab },
-            { 1, greenAgentPrefab },
-            { 2, redAgentPrefab },
-            { 3, orangeAgentPrefab },
-            { 4, yellowAgentPrefab },
-            { 5, lilaAgentPrefab }
-        };
-    }
 
     public void VisualizeBoard(BoardState boardState)
     {
@@ -137,32 +117,10 @@ public class BoardVisualizer : MonoBehaviour
             }
         }
 
-        // Agregar agentes
+        // Visualizar agentes
         if (boardState.agents != null)
         {
-            foreach (var agent in boardState.agents)
-            {
-                Vector3 position = new Vector3(agent.position[1] * cellSize, 0.2f, -agent.position[0] * cellSize);
-                
-                // Seleccionar el prefab de acuerdo con en el ID del agente
-                if (agentPrefabs.TryGetValue(agent.id, out GameObject agentPrefab))
-                {
-                    GameObject agentObject = Instantiate(agentPrefab, position, Quaternion.identity);
-                    instantiatedObjects.Add(agentObject);
-                    Debug.Log($"Agente {agent.id} en posición [{agent.position[0]}, {agent.position[1]}], con coordenadas {position}");
-
-                    // Si el agente está cargando un POI, instanciarlo
-                    if (agent.carrying_victim)
-                    {
-                        GameObject victimObject = Instantiate(victimPrefab, position, Quaternion.identity);
-                        instantiatedObjects.Add(victimObject);
-                    }
-                }
-                else
-                {
-                    Debug.LogError($"No se encontró un prefab para el agente {agent.id}.");
-                }
-            }
+            agentVisualizer.VisualizeAgents(boardState.agents, cellSize);
         }
 
         // Agregar fuego
@@ -231,5 +189,6 @@ public class BoardVisualizer : MonoBehaviour
             Destroy(obj);
         }
         instantiatedObjects.Clear();
+        agentVisualizer.ClearAgents();
     }
 }
