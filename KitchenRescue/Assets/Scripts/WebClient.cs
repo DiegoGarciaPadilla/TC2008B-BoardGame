@@ -41,15 +41,39 @@ public class WebClient : MonoBehaviour
                     else
                     {
                         Debug.Log("boardState.board no es nulo");
+                        boardVisualizer.VisualizeBoard(boardState);
+                        infoTextUpdater.UpdateInfoText(boardState.information);
                     }
-                    boardVisualizer.VisualizeBoard(boardState);
-                    infoTextUpdater.UpdateInfoText(boardState.information);
+
+                    // Iniciar la animación de los estados del tablero
+                    StartCoroutine(AnimateBoardStates(boardStateList.boardStates, 6));
                 }
                 else
                 {
                     Debug.LogError("Error al deserializar el JSON o el JSON está vacío.");
                 }
             }
+        }
+    }
+
+    IEnumerator AnimateBoardStates(List<BoardState> boardStates, int startIndex)
+    {
+        for (int i = startIndex; i < boardStates.Count; i++)
+        {
+            BoardState boardState = boardStates[i];
+            if (boardState.board == null)
+            {
+                Debug.LogError("boardState.board es nulo después de la deserialización");
+            }
+            else
+            {
+                Debug.Log("boardState.board no es nulo");
+                boardVisualizer.VisualizeBoard(boardState);
+                infoTextUpdater.UpdateInfoText(boardState.information);
+            }
+
+            // Esperar un segundo antes de pasar al siguiente estado
+            yield return new WaitForSeconds(1f);
         }
     }
 }

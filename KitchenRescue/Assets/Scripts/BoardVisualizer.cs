@@ -21,6 +21,7 @@ public class BoardVisualizer : MonoBehaviour
     public GameObject lilaAgentPrefab;
 
     private Dictionary<int, GameObject> agentPrefabs;
+    private List<GameObject> instantiatedObjects = new List<GameObject>();
 
     void Start()
     {
@@ -38,6 +39,8 @@ public class BoardVisualizer : MonoBehaviour
 
     public void VisualizeBoard(BoardState boardState)
     {
+        ClearBoard();
+
         float cellSize = 4f;
         float wallThickness = 0.2f;
 
@@ -46,9 +49,10 @@ public class BoardVisualizer : MonoBehaviour
         {
             for (int col = 0; col < boardState.information.cols; col++)
             {
-                Vector3 position = new Vector3((col * cellSize), 0, (-row * cellSize));
+                Vector3 position = new Vector3(col * cellSize, 0, -row * cellSize);
                 GameObject floor = Instantiate(floorPrefab, position, Quaternion.identity);
                 floor.transform.localScale = new Vector3(cellSize, floor.transform.localScale.y, cellSize);
+                instantiatedObjects.Add(floor);
                 
                 Debug.Log($"Celda [{row}, {col}]: {boardState.board[row][col]} at {position}");
                 string walls = boardState.board[row][col];
@@ -57,24 +61,28 @@ public class BoardVisualizer : MonoBehaviour
                     Vector3 wallPosition = position + new Vector3(0, 2, cellSize / 2);
                     GameObject wall = Instantiate(wallPrefab, wallPosition, Quaternion.Euler(0, 0, 0));
                     wall.transform.localScale = new Vector3(cellSize, wall.transform.localScale.y, wallThickness);
+                    instantiatedObjects.Add(wall);
                 }
                 if (walls[1] == '1') // Izquierda
                 {
                     Vector3 wallPosition = position + new Vector3(-cellSize / 2, 2, 0);
                     GameObject wall = Instantiate(wallPrefab, wallPosition, Quaternion.Euler(0, 90, 0));
                     wall.transform.localScale = new Vector3(cellSize, wall.transform.localScale.y, wallThickness);
+                    instantiatedObjects.Add(wall);
                 }
                 if (walls[2] == '1') // Abajo
                 {
                     Vector3 wallPosition = position + new Vector3(0, 2, -cellSize / 2);
                     GameObject wall = Instantiate(wallPrefab, wallPosition, Quaternion.Euler(0, 0, 0));
                     wall.transform.localScale = new Vector3(cellSize, wall.transform.localScale.y, wallThickness);
+                    instantiatedObjects.Add(wall);
                 }
                 if (walls[3] == '1') // Derecha
                 {
                     Vector3 wallPosition = position + new Vector3(cellSize / 2, 2, 0);
                     GameObject wall = Instantiate(wallPrefab, wallPosition, Quaternion.Euler(0, 90, 0));
                     wall.transform.localScale = new Vector3(cellSize, wall.transform.localScale.y, wallThickness);
+                    instantiatedObjects.Add(wall);
                 }
             }
         }
@@ -97,6 +105,7 @@ public class BoardVisualizer : MonoBehaviour
 
                 // Instanciar la puerta en la posición calculada con la rotación adecuada
                 GameObject doorObject = door.is_open ? Instantiate(doorFramePrefab, doorPosition, rotation) : Instantiate(doorPrefab, doorPosition, rotation);
+                instantiatedObjects.Add(doorObject);
                 
                 Debug.Log($"Puerta de [{door.from[0]}, {door.from[1]}] a [{door.to[0]}, {door.to[1]}], abierta: {door.is_open} en coordenadas {doorPosition}");
             }
@@ -120,6 +129,7 @@ public class BoardVisualizer : MonoBehaviour
 
                 // Instanciar la estantería en la posición calculada con la rotación adecuada
                 GameObject shelfObject = Instantiate(shelfPrefab, shelfPosition, rotation);
+                instantiatedObjects.Add(shelfObject);
 
                 Debug.Log($"Pared dañada de [{damagedWall.from[0]}, {damagedWall.from[1]}] a [{damagedWall.to[0]}, {damagedWall.to[1]}] en coordenadas {shelfPosition}");
             }
@@ -136,6 +146,7 @@ public class BoardVisualizer : MonoBehaviour
                 if (agentPrefabs.TryGetValue(agent.id, out GameObject agentPrefab))
                 {
                     GameObject agentObject = Instantiate(agentPrefab, position, Quaternion.identity);
+                    instantiatedObjects.Add(agentObject);
                     Debug.Log($"Agente {agent.id} en posición [{agent.position[0]}, {agent.position[1]}], con coordenadas {position}");
                 }
                 else
@@ -151,7 +162,8 @@ public class BoardVisualizer : MonoBehaviour
             foreach (var fire in boardState.fire)
             {
                 Vector3 position = new Vector3(fire[1] * cellSize, 0.2f, -fire[0] * cellSize);
-                Instantiate(firePrefab, position, Quaternion.identity);
+                GameObject fireObject = Instantiate(firePrefab, position, Quaternion.identity);
+                instantiatedObjects.Add(fireObject);
                 
                 Debug.Log($"Fuego en posición [{fire[0]}, {fire[1]}], con coordenadas {position}");
             }
@@ -163,7 +175,8 @@ public class BoardVisualizer : MonoBehaviour
             foreach (var smoke in boardState.smoke)
             {
                 Vector3 position = new Vector3(smoke[1] * cellSize, 0 , -smoke[0] * cellSize);
-                Instantiate(smokePrefab, position, Quaternion.identity);
+                GameObject smokeObject = Instantiate(smokePrefab, position, Quaternion.identity);
+                instantiatedObjects.Add(smokeObject);
                 
                 Debug.Log($"Humo en posición [{smoke[0]}, {smoke[1]}], con coordenadas {position}");
             }
@@ -175,11 +188,20 @@ public class BoardVisualizer : MonoBehaviour
             foreach (var poi in boardState.points_of_interest)
             {
                 Vector3 position = new Vector3(poi.position[1] * cellSize, 1.6f, -poi.position[0] * cellSize);
-
-                Instantiate(poiPrefab, position, Quaternion.identity);
+                GameObject poiObject = Instantiate(poiPrefab, position, Quaternion.identity);
+                instantiatedObjects.Add(poiObject);
                 
                 Debug.Log($"Punto de interés en posición [{poi.position[0]}, {poi.position[1]}], tipo: {poi.type}, con coordenadas {position}");
             }
         }
+    }
+
+    private void ClearBoard()
+    {
+        foreach (GameObject obj in instantiatedObjects)
+        {
+            Destroy(obj);
+        }
+        instantiatedObjects.Clear();
     }
 }
