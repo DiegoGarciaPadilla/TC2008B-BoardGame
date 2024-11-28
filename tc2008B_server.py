@@ -7,76 +7,58 @@ import logging
 import json
 from FireRescue_Strategic import read_board_config, initialize_board, BoardModel
 
-"""
-Clase Server hereda de BaseHTTPRequestHandler, clase que maneja las 
-solicitudes HTTP y genera respuestas HTTP.
-"""
 class Server(BaseHTTPRequestHandler):
     
-    """
-    Configura la respuesta HTTP con un código 200 y el tipo de contenido.
-    """
+    model = None
+    board_config = None
+
     def _set_response(self):
         self.send_response(200)
-        self.send_header('Content-type', 'text/html')
+        self.send_header('Content-type', 'application/json')
         self.end_headers()
     
-    """
-    Maneja las solicitudes GET.
-    """
     def do_GET(self):
         self._set_response()
-        board_config = read_board_config()
-        G = initialize_board(board_config)
-        model = BoardModel(G, board_config)
-
-        """
-        # 1 PASO DE SIMULACION
-        model.step()
-
-        # Obtener el estado del tablero
-        board_json = model.grid.build_json()
-
-        self.wfile.write(json.dumps(board_json).encode('utf-8'))
-        """
-
-        # SIMULACION COMPLETA
-        while model.running:
-            model.step()
-
-        # Obtener datos de la simulacion
-        data = model.datacollector.get_model_vars_dataframe()['Board State'].to_list()
-
-        response = {"boardStates" : data}
+        
+        if Server.model is None:
+            # Inicializar el modelo y enviar el estado inicial
+            Server.board_config = read_board_config()
+            G = initialize_board(Server.board_config)
+            Server.model = BoardModel(G, Server.board_config)
+            data = Server.model.grid.build_json()
+            response = {"boardState": data}
+        else:
+            # Avanzar un paso en la simulación y enviar el nuevo estado
+            if Server.model.running:
+                Server.model.step()
+                data = Server.model.build_json()
+                response = {"boardState": data}
+            else:
+                response = {"boardState": None}
 
         # Convertir a JSON
         board_json = json.dumps(response)
         self.wfile.write(board_json.encode('utf-8'))
 
-    """
-    Maneja las solicitudes POST.
-    """
     def do_POST(self):
-        position = {
-            "x" : 1,
-            "y" : 2,
-            "z" : 3
-        }
-
         self._set_response()
-        self.wfile.write(str(position).encode('utf-8'))
+        content_length = int(self.headers['Content-Length'])  # <--- Gets the size of data
+        post_data = self.rfile.read(content_length)  # <--- Gets the data itself
+        logging.info("POST request,\nPath: %s\nHeaders:\n%s\n\nBody:\n%s\n",
+                     str(self.path), str(self.headers), post_data.decode('utf-8'))
 
-"""
-Configura el servidor HTTP y lo ejecuta en el puerto 8585.
-"""
+        response = {"message": "POST request received"}
+        response_json = json.dumps(response)
+        self.wfile.write(response_json.encode('utf-8'))
+
 def run(server_class=HTTPServer, handler_class=Server, port=8585):
     logging.basicConfig(level=logging.INFO)
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
-    logging.info("Starting httpd...\n") # HTTPD is HTTP Daemon!
+    logging.info("Starting httpd...\n")
     try:
         httpd.serve_forever()
-    except KeyboardInterrupt:   # CTRL+C stops the server
+    except KeyboardInterrupt:
         pass
     httpd.server_close()
     logging.info("Stopping httpd...\n")
@@ -88,4 +70,3 @@ if __name__ == '__main__':
         run(port=int(argv[1]))
     else:
         run()
-        

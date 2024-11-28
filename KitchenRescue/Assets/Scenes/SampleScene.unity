@@ -1453,6 +1453,19 @@ MonoBehaviour:
   url: http://localhost:8585
   boardVisualizer: {fileID: 869308975}
   infoTextUpdater: {fileID: 1473269860}
+  currentBoardState:
+    information:
+      rows: 0
+      cols: 0
+      step: 0
+      actual_turn: 0
+      total_damage: 0
+      victims_rescued: 0
+      victims_dead: 0
+    doors: []
+    damaged_walls: []
+    agents: []
+    points_of_interest: []
 --- !u!1001 &7080487456217159169
 PrefabInstance:
   m_ObjectHideFlags: 0

@@ -1,5 +1,4 @@
-﻿// WebClient.cs
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -10,78 +9,67 @@ public class WebClient : MonoBehaviour
     public string url = "http://localhost:8585";
     public BoardVisualizer boardVisualizer;
     public InfoTextUpdater infoTextUpdater;
+    private bool gameEnded = false;
 
     void Start()
     {
         StartCoroutine(GetBoardData());
     }
-
     IEnumerator GetBoardData()
     {
-        using (UnityWebRequest www = UnityWebRequest.Get(url))
+        while (!gameEnded)
         {
-            yield return www.SendWebRequest();
+            using (UnityWebRequest www = UnityWebRequest.Get(url))
+            {
+                yield return www.SendWebRequest();
 
-            if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
-            {
-                Debug.Log(www.error);
-            }
-            else
-            {
-                string jsonText = www.downloadHandler.text;
-                Debug.Log("JSON recibido: " + jsonText); // Imprimir el JSON recibido
-                BoardStateList boardStateList = JsonConvert.DeserializeObject<BoardStateList>(jsonText);
-                if (boardStateList != null && boardStateList.boardStates != null && boardStateList.boardStates.Count > 0)
+                if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
                 {
-                    BoardState boardState = boardStateList.boardStates[5];
-                    if (boardState.board == null)
-                    {
-                        Debug.LogError("boardState.board es nulo después de la deserialización");
-                    }
-                    else
-                    {
-                        Debug.Log("boardState.board no es nulo");
-                        boardVisualizer.VisualizeBoard(boardState);
-                        infoTextUpdater.UpdateInfoText(boardState.information);
-                    }
-
-                    // Iniciar la animación de los estados del tablero
-                    StartCoroutine(AnimateBoardStates(boardStateList.boardStates, 6));
+                    Debug.Log(www.error);
                 }
                 else
                 {
-                    Debug.LogError("Error al deserializar el JSON o el JSON está vacío.");
+                    string jsonText = www.downloadHandler.text;
+                    Debug.Log("JSON recibido: " + jsonText);
+                    BoardStateResponse response = JsonConvert.DeserializeObject<BoardStateResponse>(jsonText);
+                    if (response != null && response.boardState != null)
+                    {
+                        BoardState boardState = response.boardState;
+                        if (boardState.board == null)
+                        {
+                            Debug.LogError("boardState.board es nulo después de la deserialización");
+                        }
+                        else
+                        {
+                            Debug.Log("boardState.board no es nulo");
+                            boardVisualizer.VisualizeBoard(boardState);
+                            infoTextUpdater.UpdateInfoText(boardState.information);
+
+                            // Verificar si el juego ha terminado
+                            if (boardState.information.win.HasValue)
+                            {
+                                gameEnded = true;
+                                Debug.Log("El juego ha terminado.");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Debug.LogError("Error al deserializar el JSON o el JSON está vacío.");
+                    }
                 }
             }
-        }
-    }
 
-    IEnumerator AnimateBoardStates(List<BoardState> boardStates, int startIndex)
-    {
-        for (int i = startIndex; i < boardStates.Count; i++)
-        {
-            BoardState boardState = boardStates[i];
-            if (boardState.board == null)
-            {
-                Debug.LogError("boardState.board es nulo después de la deserialización");
-            }
-            else
-            {
-                Debug.Log("boardState.board no es nulo");
-                boardVisualizer.VisualizeBoard(boardState);
-                infoTextUpdater.UpdateInfoText(boardState.information);
-            }
-
-            // Esperar un segundo antes de pasar al siguiente estado
-            yield return new WaitForSeconds(1f);
+            // Esperar antes de la siguiente petición
+            yield return new WaitForSeconds(4f);
         }
     }
 }
 
 [System.Serializable]
-public class BoardStateList
+public class BoardStateResponse
 {
-    public List<BoardState> boardStates;
+    public BoardState boardState;
 }
 
 [System.Serializable]

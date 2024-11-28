@@ -1,8 +1,8 @@
+# Flash Point: Fire Rescue
 
-# # Flash Point: Fire Rescue
+# Instalación e importación de librerías
 
-# ## Instalación e importación de librerías
-# Descargar e instalar mesa, seaborn y plotly
+# %%
 # Importamos las clases que se requieren para manejar los agentes (Agent) y su entorno (Model).
 # Cada modelo puede contener múltiples agentes.
 from mesa import Agent, Model
@@ -50,13 +50,10 @@ import networkx as nx
 # Importamos el paquete json para leer archivos de configuración.
 import json
 
-# %% [markdown]
-# ## Inicialización del proyecto
+# Inicialización del proyecto
 
-# %% [markdown]
-# ### Leer archivo de configuración
+# Leer archivo de configuración
 
-# %%
 def read_board_config():
     """
     Leer el archivo de configuración del tablero y devolver un diccionario con la configuración
@@ -91,15 +88,12 @@ def read_board_config():
 
     return board_config
 
-# %%
 board_config = read_board_config()
 
 board_config
 
-# %% [markdown]
-# ### Funciones para crear el grafo del tablero
+# Funciones para crear el grafo del tablero
 
-# %%
 def read_board(board_config):
     """
     Inicializa el tablero como un grafo usando NetworkX.
@@ -300,22 +294,8 @@ def initialize_board(board_config):
 
     return G
 
-    """
-    Inicializar el tablero como un grafo con la configuración del archivo de configuración.
-    """
+# Funciones para visualización
 
-    G = read_board(board_config)
-
-    # Validar y actualizar los pesos de las aristas
-    validate_graph(G)
-
-    return G
-
-
-# %% [markdown]
-# ### Funciones para visualización
-
-# %%
 def plot_graph(G, title='Flash Point: Fire Rescue'):
     """
     Graficar el grafo con Plotly, mostrando las conexiones de los nodos al hacer hover.
@@ -458,8 +438,6 @@ def plot_graph(G, title='Flash Point: Fire Rescue'):
 
     fig.show()
 
-
-# %%
 def draw_board(graph):
     """
     Dibuja el tablero basado únicamente en la información contenida en el grafo.
@@ -532,8 +510,6 @@ def draw_board(graph):
     # Mostrar el tablero
     plt.show()
 
-
-# %%
 def animate_board(states, interval=500):
     """
     Genera una animación del tablero basado en los datos de los turnos, incluyendo las celdas exteriores.
@@ -634,10 +610,8 @@ def animate_board(states, interval=500):
     return anim
 
 
-# %% [markdown]
-# ### Funciones del modelo
+# Funciones del modelo
 
-# %%
 def add_path(G, node_1, node_2):
     """
     Agregar un camino al grafo
@@ -1186,10 +1160,8 @@ def is_wall_damaged(G, node_1, node_2):
         return False
 
 
-# %% [markdown]
-# ## Agentes y modelo
+# Agentes y modelo
 
-# %%
 class CustomAgent(Agent):
     """
     Agente que puede tener dos comportamientos.
@@ -1424,7 +1396,7 @@ class CustomAgent(Agent):
         elif edge_data['type'] == 'wall':
 
             # Romper la pared
-            if self.ap >= 2 and self.model.grid.graph[self.pos][dest]['type'] != 'path':
+            while self.ap >= 2 and self.model.grid.graph[self.pos][dest]['type'] != 'path':
                 self.model.total_damage += self.model.grid.chop_wall(self.pos, dest)
                 self.ap -= 2
     
@@ -1465,7 +1437,6 @@ class CustomAgent(Agent):
                 self.carrying_victim = False
                 self.victim = None
                 self.model.change_roles = True
-                self.model.update_POIs()
 
             # Dirigirse a la salida más cercana
             else:
@@ -1499,7 +1470,6 @@ class CustomAgent(Agent):
                 else:
                     self.model.grid.remove_POI(self.pos)
                     self.model.poi.remove(self.pos)
-                    self.model.update_POIs()
 
             # Seguir el camino
             else:
@@ -1576,7 +1546,6 @@ class CustomAgent(Agent):
             else:
                 self.model.grid.remove_POI(self.pos)
                 self.model.poi.remove(self.pos)
-                self.model.update_POIs()
 
             # Recopilar datos
             self.model.datacollector.collect(self.model)
@@ -1591,7 +1560,6 @@ class CustomAgent(Agent):
             self.carrying_victim = False
             self.victim = None
             self.model.change_roles = True
-            self.model.update_POIs()
 
             # Recopilar datos
             self.model.datacollector.collect(self.model)
@@ -1600,8 +1568,8 @@ class CustomAgent(Agent):
         if self.model.grid.are_fire_or_smoke(self.pos) == 2:
             self.model.grid.ko_agent(self)
 
+# Grid con funciones personalizadas para el modelo
 
-# %%
 class CustomNetworkGrid(NetworkGrid):
     
     def __init__(self, graph, model):
@@ -1685,7 +1653,7 @@ class CustomNetworkGrid(NetworkGrid):
             raise ValueError(f"El agente {agent.unique_id} no está registrado en el nodo {current_node}.")
         
         # Mover al agente a una celda exterior
-        exterior_node = self.get_random_entrance_node()
+        exterior_node = self.get_farthest_entrance_node()
         self.move_agent(agent, exterior_node)
 
     # --- Métodos de consulta ---
@@ -1766,11 +1734,42 @@ class CustomNetworkGrid(NetworkGrid):
 
     def get_random_entrance_node(self):
         """
-        Obtener un nodo de entrada aleatorio para colocar las víctimas
+        Obtener un nodo de entrada para colocar los agentes
         """
 
         entrance_nodes = [(0, 6), (3, 0), (4, 9), (7, 3)]
+
         return entrance_nodes[np.random.randint(0, len(entrance_nodes))]
+
+    def get_farthest_entrance_node(self):
+        """
+        Obtener el nodo de entrada más alejado de los agentes actuales para colocar un nuevo agente.
+        """
+
+        # Lista de nodos de entrada (nodos exteriores)
+        entrance_nodes = [(0, 6), (3, 0), (4, 9), (7, 3)]
+
+        # Obtener las posiciones actuales de los agentes
+        agent_positions = [agent.pos for agent in self.model.schedule.agents]
+
+        # Si no hay agentes, seleccionar un nodo de entrada aleatorio
+        if not agent_positions:
+            return entrance_nodes[np.random.randint(0, len(entrance_nodes))]
+
+        # Calcular la distancia mínima de cada nodo de entrada hacia los agentes
+        max_distances = {}
+        for entrance in entrance_nodes:
+            distances = [
+                nx.shortest_path_length(self.graph, source=entrance, target=agent_pos, weight=None)
+                for agent_pos in agent_positions
+            ]
+            # Tomar la distancia mínima de este nodo de entrada a cualquier agente
+            max_distances[entrance] = min(distances)
+
+        # Seleccionar el nodo con la mayor distancia mínima hacia cualquier agente
+        farthest_node = max(max_distances, key=max_distances.get)
+
+        return farthest_node
 
     def is_wall_damaged(self, node_1, node_2):
             """
@@ -2322,17 +2321,25 @@ class CustomNetworkGrid(NetworkGrid):
         Args:
         """
 
+        max_expansions = 0  # Número máximo de expansiones de humo
+        exp = 0  # Contador de expansiones
+
         for node in self.graph.nodes():
             if self.graph.nodes[node]['fire'] == 1:
                 for neighbor in self.get_neighbors(node):
+                    if exp >= max_expansions:
+                        return
+
                     # Verificar si hay fuego en los vecinos y no hay una pared bloqueante
                     if self.graph.nodes[neighbor]['fire'] == 2 and self.graph.get_edge_data(node, neighbor)['type'] != 'wall':
                         # Verificar si hay una puerta y si está abierta
                         if self.graph.get_edge_data(node, neighbor)['type'] == 'door' and self.is_door_open(node, neighbor):
                             self.add_fire(node)
+                            exp += 1
                         # Si no hay puerta, verificar si hay un camino
                         elif self.graph.get_edge_data(node, neighbor)['type'] == 'path':
                             self.add_fire(node)
+                            exp += 1
 
     def open_door(self, node_1, node_2):
         """
@@ -2534,6 +2541,8 @@ class CustomNetworkGrid(NetworkGrid):
 
         return json_data
 
+# Modelo del tablero de juego
+
 class BoardModel(Model):
     """
     Modelo del tablero de juego
@@ -2599,8 +2608,9 @@ class BoardModel(Model):
 
         # Agregar agentes al modelo
         i = 0
+        entrance_nodes = [(7, 3), (0, 6), (3, 0), (4, 9)]
         while i < num_agents:
-            node = self.grid.get_random_entrance_node()
+            node = entrance_nodes[i % 4]
             # Crear un agente bombero
             agent = CustomAgent(i, self, node, 1)
             self.grid.position_agent(agent, node)
@@ -2685,22 +2695,24 @@ class BoardModel(Model):
         sorted_POIs = dict(sorted(distances_to_POIs.items(), key=lambda item: item[1]))
         sorted_fires = dict(sorted(distances_to_fire.items(), key=lambda item: item[1]))
 
+        # Lista de agentes asignados
+        assigned_agents = []
+
         # Asignar roles a rescatistas
         for agent_id in sorted_POIs.keys():
             if current_rescuers < available_rescuers:
                 self.schedule.agents[agent_id].role = 0  # Rescatista
                 current_rescuers += 1
+                assigned_agents.append(agent_id)
 
         # Asignar roles a bomberos
         for agent_id in sorted_fires.keys():
-            if current_firefighters < max_firefighters:
+            if current_firefighters < max_firefighters and agent_id not in assigned_agents:
                 self.schedule.agents[agent_id].role = 1  # Bombero
                 current_firefighters += 1
 
         # Reiniciar la variable de cambio de roles
         self.change_roles = False
-
-
 
     def step(self):
         """
@@ -2727,7 +2739,7 @@ class BoardModel(Model):
         self.total_damage += self.grid.ignite_cell((y, x))
 
         # Resolver el humo
-        #self.grid.solve_smoke()
+        self.grid.solve_smoke()
 
         # Si hay menos de 3 puntos de interés, agregar uno
         self.update_POIs()
@@ -2755,7 +2767,7 @@ class BoardModel(Model):
                 firefighters += 1
 
         print (f"Turno: {self.steps}, Rescatistas: {rescuers}, Bomberos: {firefighters}, Daño total: {self.total_damage}, Víctimas rescatadas: {self.victims_rescued}, Víctimas fallecidas: {self.victims_dead}")
-        print(f"POI restantes: {len(self.poi) - len(self.victims_in_rescue)} - Victimas en rescate: {len(self.victims_in_rescue)}")
+        # print(f"POI restantes: {len(self.poi) - len(self.victims_in_rescue)} - Victimas en rescate: {len(self.victims_in_rescue)}")
 
     def win_condition(self):
         """
@@ -2778,6 +2790,9 @@ class BoardModel(Model):
 
         return self.win_condition() or self.lose_condition()
     
+
+# Testing
+
 # Inicializar el grafo
 G = initialize_board(board_config)
 
