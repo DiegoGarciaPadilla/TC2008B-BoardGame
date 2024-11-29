@@ -609,7 +609,6 @@ def animate_board(states, interval=500):
     plt.show()
     return anim
 
-
 # Funciones del modelo
 
 def add_path(G, node_1, node_2):
@@ -2793,6 +2792,7 @@ class BoardModel(Model):
 
 # Testing
 
+"""
 # Inicializar el grafo
 G = initialize_board(board_config)
 
@@ -2815,3 +2815,4 @@ board_states = model.datacollector.get_model_vars_dataframe()['Board State'].tol
 out = json.dumps(board_states)
 
 print(out)
+"""

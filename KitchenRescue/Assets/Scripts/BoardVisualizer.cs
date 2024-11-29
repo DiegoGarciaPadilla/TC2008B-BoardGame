@@ -18,9 +18,32 @@ public class BoardVisualizer : MonoBehaviour
     public AgentVisualizer agentVisualizer;
 
     private List<GameObject> instantiatedObjects = new List<GameObject>();
+    private bool isBoardInitialized = false;
 
+    public void InitializeBoard(BoardState boardState)
+    {
+        if (isBoardInitialized)
+            return;
+        
+        float cellSize = 4f;
+        
+        for (int row = 0; row < boardState.information.rows; row++)
+        {
+            for (int col = 0; col < boardState.information.cols; col++)
+            {
+                Vector3 position = new Vector3(col * cellSize, 0, -row * cellSize);
+                GameObject floor = Instantiate(floorPrefab, position, Quaternion.identity);
+                floor.transform.localScale = new Vector3(cellSize, floor.transform.localScale.y, cellSize);
+            }
+        }
+
+        isBoardInitialized = true;
+    }
     public void VisualizeBoard(BoardState boardState)
     {
+        if (!isBoardInitialized)
+            InitializeBoard(boardState);
+
         ClearBoard();
 
         float cellSize = 4f;
@@ -32,9 +55,6 @@ public class BoardVisualizer : MonoBehaviour
             for (int col = 0; col < boardState.information.cols; col++)
             {
                 Vector3 position = new Vector3(col * cellSize, 0, -row * cellSize);
-                GameObject floor = Instantiate(floorPrefab, position, Quaternion.identity);
-                floor.transform.localScale = new Vector3(cellSize, floor.transform.localScale.y, cellSize);
-                instantiatedObjects.Add(floor);
                 
                 Debug.Log($"Celda [{row}, {col}]: {boardState.board[row][col]} at {position}");
                 string walls = boardState.board[row][col];
@@ -189,6 +209,5 @@ public class BoardVisualizer : MonoBehaviour
             Destroy(obj);
         }
         instantiatedObjects.Clear();
-        agentVisualizer.ClearAgents();
     }
 }

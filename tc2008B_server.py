@@ -8,33 +8,28 @@ import json
 from FireRescue_Strategic import read_board_config, initialize_board, BoardModel
 
 class Server(BaseHTTPRequestHandler):
-    
+
     model = None
     board_config = None
-
+    
     def _set_response(self):
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.end_headers()
     
-    def do_GET(self):
+    def do_GET(self):        
         self._set_response()
-        
-        if Server.model is None:
-            # Inicializar el modelo y enviar el estado inicial
-            Server.board_config = read_board_config()
-            G = initialize_board(Server.board_config)
-            Server.model = BoardModel(G, Server.board_config)
-            data = Server.model.grid.build_json()
-            response = {"boardState": data}
-        else:
-            # Avanzar un paso en la simulación y enviar el nuevo estado
-            if Server.model.running:
-                Server.model.step()
-                data = Server.model.build_json()
-                response = {"boardState": data}
-            else:
-                response = {"boardState": None}
+        Server.board_config = read_board_config()
+        G = initialize_board(Server.board_config)
+        Server.model = BoardModel(G, Server.board_config, num_agents=6)
+
+        while Server.model.running:
+            Server.model.step()
+
+        # Obtener datos de la simulacion
+        data = Server.model.datacollector.get_model_vars_dataframe()['Board State'].to_list()
+
+        response = {"boardStates" : data}
 
         # Convertir a JSON
         board_json = json.dumps(response)
