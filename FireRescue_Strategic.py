@@ -2,7 +2,7 @@
 
 # Instalación e importación de librerías
 
-# %%
+# Descargar e instalar mesa, seaborn y plotly
 # Importamos las clases que se requieren para manejar los agentes (Agent) y su entorno (Model).
 # Cada modelo puede contener múltiples agentes.
 from mesa import Agent, Model
@@ -53,7 +53,6 @@ import json
 # Inicialización del proyecto
 
 # Leer archivo de configuración
-
 def read_board_config():
     """
     Leer el archivo de configuración del tablero y devolver un diccionario con la configuración
@@ -608,6 +607,7 @@ def animate_board(states, interval=500):
     anim = FuncAnimation(fig, update, frames=len(states), interval=interval, repeat=False)
     plt.show()
     return anim
+
 
 # Funciones del modelo
 
@@ -1404,8 +1404,62 @@ class CustomAgent(Agent):
         Acciones del turno si el agente tiene el rol de bombero.
         """
 
-        # Encontrar el fuego más cercano
-        closest_fire = self.find_closest_fire()
+        def get_node_value(node, priority):
+            weight = self.model.grid.shortest_path_no_walls(self.pos, node)['total_weight']
+
+            return priority / (weight + 1)
+
+        priorities = {
+            'fire_adjacent_to_fire': 5,
+            'fire_adjacent_to_smoke': 4,
+            'smoke_adjacent_to_fire': 3,
+            'fire_alone': 2,
+            'smoke_adjacent_to_smoke': 1,
+            'smoke_alone': 0
+
+        }
+
+        # Encontrar los objetivos (fuego y humo) 
+        objectives = self.model.grid.get_fire_and_smoke_nodes()
+
+        # Si no hay objetivos, cambiar de rol
+        if not objectives:
+            self.role = 0
+            return
+
+        # Obtener prioridades
+        fire_adjacent_to_fire = self.model.grid.get_fires_adjacent_to_fire()
+        fire_adjacent_to_smoke = self.model.grid.get_fires_adjacent_to_smoke()
+        smoke_adjacent_to_fire = self.model.grid.get_smoke_adjacent_to_fire()
+        fire_alone = self.model.grid.get_fire_alone_nodes()
+        smoke_adjacent_to_smoke = self.model.grid.get_smoke_adjacent_to_smoke()
+        smoke_alone = self.model.grid.get_smoke_alone_nodes()
+
+        # Evaluar prioridades
+        prioritiy = {}
+        for node in objectives:
+            if node in fire_adjacent_to_fire:
+                prioritiy[node] = get_node_value(node, priorities['fire_adjacent_to_fire'])
+            elif node in fire_adjacent_to_smoke:
+                prioritiy[node] = get_node_value(node, priorities['fire_adjacent_to_smoke'])
+            elif node in smoke_adjacent_to_fire:
+                prioritiy[node] = get_node_value(node, priorities['smoke_adjacent_to_fire'])
+            elif node in fire_alone:
+                prioritiy[node] = get_node_value(node, priorities['fire_alone'])
+            elif node in smoke_adjacent_to_smoke:
+                prioritiy[node] = get_node_value(node, priorities['smoke_adjacent_to_smoke'])
+            elif node in smoke_alone:
+                prioritiy[node] = get_node_value(node, priorities['smoke_alone'])
+
+        if not prioritiy:
+            self.role = 0
+            return
+
+        # Encontrar el objetivo con mayor prioridad
+        node = max(prioritiy, key=prioritiy.get)
+
+        # Calcular la ruta más corta al objetivo
+        closest_fire = self.model.grid.shortest_path_no_walls(self.pos, node)
 
         # Verificar si hay fuego
         if closest_fire:
@@ -1416,7 +1470,7 @@ class CustomAgent(Agent):
             # Moverse al fuego más cercano
             if self.path:
                 # print(f"Moverse al fuego más cercano: {self.pos} --> {self.path[0]} - {self.path}")
-                self.move_to(self.path[0])
+                self.move_to(self.path[0], 2 if self.carrying_victim else 1)
 
     def turn_rescuer(self):
         """
@@ -1508,8 +1562,7 @@ class CustomAgent(Agent):
             self.turns_to_revive = 1
         
         # Restaurar los puntos de acción
-        self.ap = self.max_ap
-
+        self.ap = (self.ap + self.max_ap) if self.ap > 0 else self.max_ap
 
         # Turno del bombero
         while self.ap > 0 and iteration < max_iterations:
@@ -1567,8 +1620,8 @@ class CustomAgent(Agent):
         if self.model.grid.are_fire_or_smoke(self.pos) == 2:
             self.model.grid.ko_agent(self)
 
-# Grid con funciones personalizadas para el modelo
 
+# Grid adaptada al tablero de FireRescue
 class CustomNetworkGrid(NetworkGrid):
     
     def __init__(self, graph, model):
@@ -1930,8 +1983,138 @@ class CustomNetworkGrid(NetworkGrid):
         """
         Obtener las celdas con fuego
         """
-        return [node for node in self.graph.nodes if self.graph.nodes[node]['fire'] > 0]
+        return [node for node in self.graph.nodes if self.graph.nodes[node]['fire'] == 2]
     
+    def get_smoke_nodes(self):
+        """
+        Obtener las celdas con fuego
+        """
+        return [node for node in self.graph.nodes if self.graph.nodes[node]['fire'] == 2]
+    
+    def get_fire_and_smoke_nodes(self):
+        """
+        Obtener las celdas con fuego y humo
+        """
+        return [node for node in self.graph.nodes if self.graph.nodes[node]['fire'] > 0]
+
+    def get_fires_adjacent_to_fire(self):
+        """
+        Obtener las celdas con fuego adyacentes a fuego
+        """
+        
+        # Obtener las celdas con fuego
+        fire = self.get_fire_nodes()
+
+        # Obtener las celdas con fuego adyacentes a fuego
+        fires_adjacent_to_fire = []
+
+        for node in fire:
+            neighbors = self.get_neighbors(node)
+            for neighbor in neighbors:
+                if neighbor in fire:
+                    fires_adjacent_to_fire.append(node)
+
+        return fires_adjacent_to_fire
+
+    def get_fires_adjacent_to_smoke(self):
+        """
+        Obtener las celdas con fuego adyacentes a humo
+        """
+        
+        # Obtener las celdas con fuego
+        fire = self.get_fire_nodes()
+
+        # Obtener las celdas con humo
+        smoke = self.get_smoke_nodes()
+
+        # Obtener las celdas con fuego adyacentes a humo
+        fires_adjacent_to_smoke = []
+
+        for node in fire:
+            neighbors = self.get_neighbors(node)
+            for neighbor in neighbors:
+                if neighbor in smoke:
+                    fires_adjacent_to_smoke.append(node)
+
+        return fires_adjacent_to_smoke
+
+    def get_smoke_adjacent_to_fire(self):
+        """
+        Obtener las celdas con humo adyacentes a fuego
+        """
+        
+        # Obtener las celdas con fuego
+        fire = self.get_fire_nodes()
+
+        # Obtener las celdas con humo
+        smoke = self.get_smoke_nodes()
+
+        # Obtener las celdas con humo adyacentes a fuego
+        smoke_adjacent_to_fire = []
+
+        for node in smoke:
+            neighbors = self.get_neighbors(node)
+            for neighbor in neighbors:
+                if neighbor in fire:
+                    smoke_adjacent_to_fire.append(node)
+
+        return smoke_adjacent_to_fire
+
+    def get_smoke_adjacent_to_smoke(self):
+        """
+        Obtener las celdas con humo adyacentes a humo
+        """
+        
+        # Obtener las celdas con humo
+        smoke = self.get_smoke_nodes()
+
+        # Obtener las celdas con humo adyacentes a humo
+        smoke_adjacent_to_smoke = []
+
+        for node in smoke:
+            neighbors = self.get_neighbors(node)
+            for neighbor in neighbors:
+                if neighbor in smoke:
+                    smoke_adjacent_to_smoke.append(node)
+
+        return smoke_adjacent_to_smoke
+
+    def get_fire_alone_nodes(self):
+        """
+        Obtener las celdas con fuego sin fuego ni humo adyacente
+        """
+        
+        # Obtener las celdas con fuego
+        fire = self.get_fire_nodes()
+
+        # Obtener las celdas con fuego sin fuego ni humo adyacente
+        fire_alone = []
+        for node in fire:
+            neighbors = self.get_neighbors(node)
+            for neighbor in neighbors:
+                if self.graph.nodes[neighbor]['fire'] == 0:
+                    fire_alone.append(node)
+
+        return fire_alone
+
+    def get_smoke_alone_nodes(self):
+        """
+        Obtener las celdas con humo sin fuego ni humo adyacente
+        """
+        
+        # Obtener las celdas con humo
+        smoke = self.get_smoke_nodes()
+
+        # Obtener las celdas con humo sin fuego ni humo adyacente
+        smoke_alone = []
+        for node in smoke:
+            neighbors = self.get_neighbors(node)
+            for neighbor in neighbors:
+                if self.graph.nodes[neighbor]['fire'] == 0:
+                    smoke_alone.append(node)
+
+        return smoke_alone
+
     # --- Métodos de manipulación de la red ---
 
     def add_path(self, node_1, node_2):
@@ -2017,9 +2200,17 @@ class CustomNetworkGrid(NetworkGrid):
         # Obtener nodos interiores sin puntos de interés
         interior_nodes = [node for node in self.graph.nodes if self.graph.nodes[node]['type'] == 'interior' and self.graph.nodes[node].get('POI') is None]
 
+        # Obtener las posiciones de los agentes
+        agent_positions = [agent.pos for agent in self.model.schedule.agents]
+
         # Seleccionar un nodo aleatorio
         if interior_nodes:
             node = interior_nodes[np.random.randint(0, len(interior_nodes))]
+
+            if node in agent_positions:
+                if not is_victim:
+                    return None
+
             self.add_POI(node, is_victim)
 
         return node
@@ -2320,25 +2511,17 @@ class CustomNetworkGrid(NetworkGrid):
         Args:
         """
 
-        max_expansions = 0  # Número máximo de expansiones de humo
-        exp = 0  # Contador de expansiones
-
         for node in self.graph.nodes():
             if self.graph.nodes[node]['fire'] == 1:
                 for neighbor in self.get_neighbors(node):
-                    if exp >= max_expansions:
-                        return
-
                     # Verificar si hay fuego en los vecinos y no hay una pared bloqueante
                     if self.graph.nodes[neighbor]['fire'] == 2 and self.graph.get_edge_data(node, neighbor)['type'] != 'wall':
                         # Verificar si hay una puerta y si está abierta
                         if self.graph.get_edge_data(node, neighbor)['type'] == 'door' and self.is_door_open(node, neighbor):
                             self.add_fire(node)
-                            exp += 1
                         # Si no hay puerta, verificar si hay un camino
                         elif self.graph.get_edge_data(node, neighbor)['type'] == 'path':
                             self.add_fire(node)
-                            exp += 1
 
     def open_door(self, node_1, node_2):
         """
@@ -2540,8 +2723,7 @@ class CustomNetworkGrid(NetworkGrid):
 
         return json_data
 
-# Modelo del tablero de juego
-
+# Modelo para el tablero de juego
 class BoardModel(Model):
     """
     Modelo del tablero de juego
@@ -2564,8 +2746,6 @@ class BoardModel(Model):
         # POIs
         self.max_victims = 10
         self.max_false_alarms = 5
-        self.victims_created = 0
-        self.false_alarms_created = 0
 
         # Ubicar los puntos de interés en el tablero
         self.poi = []
@@ -2646,7 +2826,10 @@ class BoardModel(Model):
             
 
         while len(self.poi) < 3:
-            node = self.grid.place_POI(get_is_victim())
+            node = None
+            while node is None:
+                is_victim = get_is_victim()
+                node = self.grid.place_POI(is_victim)
             self.poi.append(node)
             self.change_roles = True
 
@@ -2732,7 +2915,7 @@ class BoardModel(Model):
         self.schedule.step()
 
         # Ignición aleatoria
-        x, y = np.random.randint(1, 8), np.random.randint(1, 6)
+        x, y = np.random.randint(1, 9), np.random.randint(1, 7)
 
         # Ignición en la celda aleatoria
         self.total_damage += self.grid.ignite_cell((y, x))
@@ -2788,31 +2971,3 @@ class BoardModel(Model):
         """
 
         return self.win_condition() or self.lose_condition()
-    
-
-# Testing
-
-"""
-# Inicializar el grafo
-G = initialize_board(board_config)
-
-# Inicializar el modelo
-model = BoardModel(G, board_config, num_agents=6)
-
-# Ejecutar la simulación
-while model.running:
-    model.step()
-
-# Obtener los datos de la simulación
-print("¡VICTORIA!" if model.win else "¡DERROTA!")
-print("Turnos:", model.steps)
-print("Daño total:", model.total_damage)
-print("Víctimas rescatadas:", model.victims_rescued)
-print("Víctimas fallecidas:", model.victims_dead)
-
-board_states = model.datacollector.get_model_vars_dataframe()['Board State'].tolist()
-
-out = json.dumps(board_states)
-
-print(out)
-"""

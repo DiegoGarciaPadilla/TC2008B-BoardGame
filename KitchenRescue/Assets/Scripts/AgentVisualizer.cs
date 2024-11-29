@@ -12,7 +12,7 @@ public class AgentVisualizer : MonoBehaviour
     public GameObject lilaAgentPrefab;
     public GameObject victimPrefab;
 
-    public AgentRotationHandler rotationHandler; // Referencia al script AgentRotationHandler
+    public AgentRotationHandler rotationHandler;
 
     private Dictionary<int, GameObject> agentPrefabs;
     private Dictionary<int, AgentInstance> agentsDictionary = new Dictionary<int, AgentInstance>();
@@ -34,45 +34,59 @@ public class AgentVisualizer : MonoBehaviour
 
     public void VisualizeAgents(List<Agent> agents, float cellSize)
     {
+        // Agrupar agentes por posición
+        var groupedAgents = new Dictionary<Vector2Int, List<Agent>>();
         foreach (var agent in agents)
         {
-            Vector2Int cell = new Vector2Int(agent.position[0], agent.position[1]);
-            Vector3 targetPosition = new Vector3(cell.y * cellSize, 0.2f, -cell.x * cellSize);
-
-            if (agentsDictionary.TryGetValue(agent.id, out AgentInstance agentInstance))
+            Vector2Int pos = new Vector2Int(agent.position[0], agent.position[1]);
+            if (!groupedAgents.ContainsKey(pos))
             {
-                // Actualizar la posición objetivo
-                agentInstance.SetTargetPosition(targetPosition);
-
-                // Actualizar la rotación si es necesario
-                Quaternion rotation = rotationHandler.GetAgentRotation(agent.id, targetPosition);
-                agentInstance.SetRotation(rotation);
-
-                // Instanciar víctima si está cargando
-                if (agent.carrying_victim && agentInstance.victimObject == null)
-                {
-                    GameObject victimObject = Instantiate(victimPrefab, agentInstance.gameObject.transform);
-                    agentInstance.victimObject = victimObject;
-                }
-                else if (!agent.carrying_victim && agentInstance.victimObject != null)
-                {
-                    Destroy(agentInstance.victimObject);
-                }
+                groupedAgents[pos] = new List<Agent>();
             }
-            else
+            groupedAgents[pos].Add(agent);
+        }
+
+        foreach (var group in groupedAgents)
+        {
+            Vector3 basePosition = new Vector3(group.Key.y * cellSize, 0.2f, -group.Key.x * cellSize);
+            int count = group.Value.Count;
+
+            for (int i = 0; i < count; i++)
             {
-                // Instanciar nuevo agente
-                if (agentPrefabs.TryGetValue(agent.id, out GameObject agentPrefab))
+                Agent agent = group.Value[i];
+                Vector3 offset = CalculateOffset(i, count, cellSize);
+                Vector3 finalPosition = basePosition + offset;
+
+                if (agentsDictionary.TryGetValue(agent.id, out AgentInstance agentInstance))
                 {
-                    Quaternion rotation = rotationHandler.GetAgentRotation(agent.id, targetPosition);
-                    GameObject agentObject = Instantiate(agentPrefab, targetPosition, rotation);
-                    AgentInstance newAgentInstance = new AgentInstance(agentObject);
-                    agentsDictionary.Add(agent.id, newAgentInstance);
-                    Debug.Log($"Instanciado nuevo agente {agent.id} en posición {cell}");
+                    agentInstance.SetTargetPosition(finalPosition);
+                    Quaternion rotation = rotationHandler.GetAgentRotation(agent.id, finalPosition);
+                    agentInstance.SetRotation(rotation);
+
+                    if (agent.carrying_victim && agentInstance.victimObject == null)
+                    {
+                        GameObject victimObject = Instantiate(victimPrefab, agentInstance.gameObject.transform);
+                        agentInstance.victimObject = victimObject;
+                    }
+                    else if (!agent.carrying_victim && agentInstance.victimObject != null)
+                    {
+                        Destroy(agentInstance.victimObject);
+                    }
                 }
                 else
                 {
-                    Debug.LogError($"No se encontró un prefab para el agente {agent.id}.");
+                    if (agentPrefabs.TryGetValue(agent.id, out GameObject agentPrefab))
+                    {
+                        Quaternion rotation = rotationHandler.GetAgentRotation(agent.id, finalPosition);
+                        GameObject agentObject = Instantiate(agentPrefab, finalPosition, rotation);
+                        AgentInstance newAgentInstance = new AgentInstance(agentObject);
+                        agentsDictionary.Add(agent.id, newAgentInstance);
+                        Debug.Log($"Instanciado nuevo agente {agent.id} en posición {group.Key}");
+                    }
+                    else
+                    {
+                        Debug.LogError($"No se encontró un prefab para el agente {agent.id}.");
+                    }
                 }
             }
         }
@@ -96,6 +110,13 @@ public class AgentVisualizer : MonoBehaviour
         {
             agentsDictionary.Remove(id);
         }
+    }
+
+    private Vector3 CalculateOffset(int index, int total, float cellSize)
+    {
+        float angle = index * Mathf.PI * 2 / total;
+        float radius = cellSize * 0.1f;
+        return new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * radius;
     }
 
     public void ClearAgents()
