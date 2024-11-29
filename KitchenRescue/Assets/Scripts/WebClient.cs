@@ -1,66 +1,140 @@
-﻿// TC2008B Modelación de Sistemas Multiagentes con gráficas computacionales
-// C# client to interact with Python server via POST
-// Sergio Ruiz-Loza, Ph.D. March 2021
-
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
-using UnityEditor;
 using UnityEngine;
 using UnityEngine.Networking;
+using Newtonsoft.Json;
 
 public class WebClient : MonoBehaviour
 {
-    /*
-    // IEnumerator - yield return
-    Envía datos a servidor Python mediante solicitud POST.
-    Los datos se envían como JSON y se espera una respuesta JSON que se convierte en un Vector3.
-    */
-    IEnumerator SendData(string data)
-    {
-        WWWForm form = new WWWForm();
-        form.AddField("bundle", "the data");
-        string url = "http://localhost:8585";
-        using (UnityWebRequest www = UnityWebRequest.Post(url, form))
-        {
-            byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(data);
-            www.uploadHandler = (UploadHandler)new UploadHandlerRaw(bodyRaw);
-            www.downloadHandler = (DownloadHandler)new DownloadHandlerBuffer();
-            //www.SetRequestHeader("Content-Type", "text/html");
-            www.SetRequestHeader("Content-Type", "application/json");
+    public string url = "http://localhost:8585";
+    public BoardVisualizer boardVisualizer;
+    public InfoTextUpdater infoTextUpdater;
 
-            yield return www.SendWebRequest();          // Talk to Python
-            if(www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
+    void Start()
+    {
+        StartCoroutine(GetBoardData());
+    }
+
+    IEnumerator GetBoardData()
+    {
+        using (UnityWebRequest www = UnityWebRequest.Get(url))
+        {
+            yield return www.SendWebRequest();
+
+            if (www.result == UnityWebRequest.Result.ConnectionError || www.result == UnityWebRequest.Result.ProtocolError)
             {
                 Debug.Log(www.error);
             }
             else
             {
-                Debug.Log(www.downloadHandler.text);    // Answer from Python
-                Vector3 tPos = JsonUtility.FromJson<Vector3>(www.downloadHandler.text.Replace('\'', '\"'));
-                //Debug.Log("Form upload complete!");
-                Debug.Log(tPos);
+                string jsonText = www.downloadHandler.text;
+                Debug.Log("JSON recibido: " + jsonText); // Imprimir el JSON recibido
+                BoardStateList boardStateList = JsonConvert.DeserializeObject<BoardStateList>(jsonText);
+                if (boardStateList != null && boardStateList.boardStates != null && boardStateList.boardStates.Count > 0)
+                {
+                    BoardState boardState = boardStateList.boardStates[0];
+                    if (boardState.board == null)
+                    {
+                        Debug.LogError("boardState.board es nulo después de la deserialización");
+                    }
+                    else
+                    {
+                        Debug.Log("boardState.board no es nulo");
+                        boardVisualizer.VisualizeBoard(boardState);
+                        infoTextUpdater.UpdateInfoText(boardState.information);
+                    }
+
+                    // Iniciar la animación de los estados del tablero
+                    StartCoroutine(AnimateBoardStates(boardStateList.boardStates, 1));
+                }
+                else
+                {
+                    Debug.LogError("Error al deserializar el JSON o el JSON está vacío.");
+                }
             }
         }
-
     }
 
-    /*
-    Crea un objeto Vector3 y lo convierte a JSON para enviarlo al servidor Python.
-    // Start is called before the first frame update
-    */
-    void Start()
+    IEnumerator AnimateBoardStates(List<BoardState> boardStates, int startIndex)
     {
-        //string call = "What's up?";
-        Vector3 fakePos = new Vector3(3.44f, 0, -15.707f);
-        string json = EditorJsonUtility.ToJson(fakePos);
-        //StartCoroutine(SendData(call));
-        StartCoroutine(SendData(json));
-        // transform.localPosition
-    }
+        for (int i = startIndex; i < boardStates.Count; i++)
+        {
+            BoardState boardState = boardStates[i];
+            if (boardState.board == null)
+            {
+                Debug.LogError("boardState.board es nulo después de la deserialización");
+            }
+            else
+            {
+                Debug.Log("boardState.board no es nulo");
+                boardVisualizer.VisualizeBoard(boardState);
+                infoTextUpdater.UpdateInfoText(boardState.information);
+            }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
+            // Esperar un segundo antes de pasar al siguiente estado
+            yield return new WaitForSeconds(2f);
+        }
     }
+}
+
+[System.Serializable]
+public class BoardStateList
+{
+    public List<BoardState> boardStates;
+}
+
+[System.Serializable]
+public class BoardState
+{
+    public Information information;
+    public List<List<string>> board;
+    public List<Door> doors;
+    public List<DamagedWall> damaged_walls;
+    public List<Agent> agents;
+    public List<List<int>> fire;
+    public List<List<int>> smoke;
+    public List<PointsOfInterest> points_of_interest;
+}
+
+[System.Serializable]
+public class Information
+{
+    public int rows;
+    public int cols;
+    public int step;
+    public int actual_turn;
+    public int total_damage;
+    public int victims_rescued;
+    public int victims_dead;
+    public bool? win;
+}
+
+[System.Serializable]
+public class Door
+{
+    public List<int> from;
+    public List<int> to;
+    public bool is_open;
+}
+
+[System.Serializable]
+public class DamagedWall
+{
+    public List<int> from;
+    public List<int> to;
+}
+
+[System.Serializable]
+public class Agent
+{
+    public int id;
+    public List<int> position;
+    public bool carrying_victim;
+}
+
+[System.Serializable]
+public class PointsOfInterest
+{
+    public List<int> position;
+    public string type;
 }

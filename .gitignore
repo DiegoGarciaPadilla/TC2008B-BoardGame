@@ -78,3 +78,6 @@ KitchenRescue/Library/ArtifactDB
 KitchenRescue/Library/PackageCache/com.unity.burst/.Runtime/burst-llvm-16-arm64.dll
 KitchenRescue/Library/PackageCache/com.unity.burst/.Runtime/burst-llvm-16.dll
 KitchenRescue/Library/PackageCache/com.unity.burst/.Runtime/hostmac/dsymutil
+
+# Ignore pycache
+__pycache__/

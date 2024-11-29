@@ -63,7 +63,7 @@ PrefabInstance:
     - target: {fileID: -2818358490311987272, guid: 41090ad2c94f16948a249a087a859261, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 5ae4d4cbe189d2148b9ea47c0f4e85f1, type: 2}
+      objectReference: {fileID: 2100000, guid: 0857b311d949e424c9148007c9d11864, type: 2}
     - target: {fileID: 919132149155446097, guid: 41090ad2c94f16948a249a087a859261, type: 3}
       propertyPath: m_Name
       value: TrayAlone
@@ -71,7 +71,7 @@ PrefabInstance:
     - target: {fileID: 4431670454091400558, guid: 41090ad2c94f16948a249a087a859261, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 5ae4d4cbe189d2148b9ea47c0f4e85f1, type: 2}
+      objectReference: {fileID: 2100000, guid: 0857b311d949e424c9148007c9d11864, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

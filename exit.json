@@ -1,1022 +1,444 @@
 {
-    "0": {
-        "0": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [1, 0],
-                [0, 1]
-            ]
+    "boardStates": [
+    {
+        "information": {
+            "rows": 8,
+            "cols": 10,
+            "step": 0,
+            "actual_turn": 0,
+            "total_damage": 0,
+            "victims_rescued": 0,
+            "victims_dead": 0,
+            "win": null
         },
-        "1": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 0],
-                [1, 1],
-                [0, 2]
+        "board": [
+            [
+                "0000",
+                "0010",
+                "0010",
+                "0010",
+                "0010",
+                "0010",
+                "0000",
+                "0010",
+                "0010",
+                "0000"
+            ],
+            [
+                "0001",
+                "1100",
+                "1000",
+                "1000",
+                "1000",
+                "1001",
+                "0100",
+                "1000",
+                "1001",
+                "0100"
+            ],
+            [
+                "0001",
+                "0100",
+                "0000",
+                "0011",
+                "0110",
+                "0010",
+                "0010",
+                "0010",
+                "0001",
+                "0100"
+            ],
+            [
+                "0000",
+                "0000",
+                "0000",
+                "1000",
+                "1000",
+                "1000",
+                "1001",
+                "1100",
+                "0001",
+                "0100"
+            ],
+            [
+                "0001",
+                "0110",
+                "0011",
+                "0110",
+                "0000",
+                "0010",
+                "0010",
+                "0010",
+                "0010",
+                "0000"
+            ],
+            [
+                "0001",
+                "1100",
+                "1000",
+                "1000",
+                "0000",
+                "1001",
+                "1100",
+                "1001",
+                "1101",
+                "0100"
+            ],
+            [
+                "0001",
+                "0110",
+                "0010",
+                "0000",
+                "0010",
+                "0010",
+                "0010",
+                "0010",
+                "0011",
+                "0100"
+            ],
+            [
+                "0000",
+                "1000",
+                "1000",
+                "0000",
+                "1000",
+                "1000",
+                "1000",
+                "1000",
+                "1000",
+                "0000"
             ]
-        },
-        "2": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 1],
-                [1, 2],
-                [0, 3]
-            ]
-        },
-        "3": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 2],
-                [1, 3],
-                [0, 4]
-            ]
-        },
-        "4": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 3],
-                [1, 4],
-                [0, 5]
-            ]
-        },
-        "5": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 4],
-                [1, 5],
-                [0, 6]
-            ]
-        },
-        "6": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 5],
-                [1, 6],
-                [0, 7]
-            ]
-        },
-        "7": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 6],
-                [1, 7],
-                [0, 8]
-            ]
-        },
-        "8": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 7],
-                [1, 8],
-                [0, 9]
-            ]
-        },
-        "9": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 8],
-                [1, 9]
-            ]
-        }
+        ],
+        "doors": [
+            { "from": [1, 3], "to": [1, 4], "is_open": false },
+            { "from": [2, 5], "to": [2, 6], "is_open": false },
+            { "from": [2, 8], "to": [3, 8], "is_open": false },
+            { "from": [3, 2], "to": [3, 3], "is_open": false },
+            { "from": [4, 4], "to": [5, 4], "is_open": false },
+            { "from": [4, 6], "to": [4, 7], "is_open": false },
+            { "from": [6, 5], "to": [6, 6], "is_open": false },
+            { "from": [6, 7], "to": [6, 8], "is_open": false }
+        ],
+        "damaged_walls": [],
+        "agents": [
+            { "id": 2, "position": [0, 1] },
+            { "id": 3, "position": [0, 5] },
+            { "id": 1, "position": [1, 9] },
+            { "id": 5, "position": [2, 0] },
+            { "id": 0, "position": [6, 0] },
+            { "id": 4, "position": [7, 4] }
+        ],
+        "fire": [
+            [2, 2],
+            [2, 3],
+            [3, 2],
+            [3, 3],
+            [3, 4],
+            [3, 5],
+            [4, 4],
+            [5, 6],
+            [5, 7],
+            [6, 6]
+        ],
+        "smoke": [],
+        "points_of_interest": [
+            { "position": [2, 4], "type": "victim" },
+            { "position": [5, 1], "type": "false_alarm" },
+            { "position": [5, 8], "type": "victim" }
+        ]
     },
-    "1": {
-        "0": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 0],
-                [2, 0],
-                [1, 1]
-            ]
+    {
+        "information": {
+            "rows": 8,
+            "cols": 10,
+            "step": 0,
+            "actual_turn": 0,
+            "total_damage": 0,
+            "victims_rescued": 0,
+            "victims_dead": 0,
+            "win": null
         },
-        "1": {
-            "wall_info": "1100",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 1],
-                [1, 0],
-                [2, 1],
-                [1, 2]
+        "board": [
+            [
+                "0000",
+                "0010",
+                "0010",
+                "0010",
+                "0010",
+                "0010",
+                "0000",
+                "0010",
+                "0010",
+                "0000"
+            ],
+            [
+                "0001",
+                "1100",
+                "1000",
+                "1000",
+                "1000",
+                "1001",
+                "0100",
+                "1000",
+                "1001",
+                "0100"
+            ],
+            [
+                "0001",
+                "0100",
+                "0000",
+                "0011",
+                "0110",
+                "0010",
+                "0010",
+                "0010",
+                "0001",
+                "0100"
+            ],
+            [
+                "0000",
+                "0000",
+                "0000",
+                "1000",
+                "1000",
+                "1000",
+                "1001",
+                "1100",
+                "0001",
+                "0100"
+            ],
+            [
+                "0001",
+                "0110",
+                "0011",
+                "0110",
+                "0000",
+                "0010",
+                "0010",
+                "0010",
+                "0010",
+                "0000"
+            ],
+            [
+                "0001",
+                "1100",
+                "1000",
+                "1000",
+                "0000",
+                "1001",
+                "1100",
+                "1001",
+                "1101",
+                "0100"
+            ],
+            [
+                "0001",
+                "0110",
+                "0010",
+                "0000",
+                "0010",
+                "0010",
+                "0010",
+                "0010",
+                "0011",
+                "0100"
+            ],
+            [
+                "0000",
+                "1000",
+                "1000",
+                "0000",
+                "1000",
+                "1000",
+                "1000",
+                "1000",
+                "1000",
+                "0000"
             ]
-        },
-        "2": {
-            "wall_info": "1000",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 2],
-                [1, 1],
-                [2, 2],
-                [1, 3]
-            ]
-        },
-        "3": {
-            "wall_info": "1001",
-            "door_to": [[1, 4]],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 3],
-                [1, 2],
-                [2, 3],
-                [1, 4]
-            ]
-        },
-        "4": {
-            "wall_info": "1100",
-            "door_to": [[1, 3]],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 4],
-                [1, 3],
-                [2, 4],
-                [1, 5]
-            ]
-        },
-        "5": {
-            "wall_info": "1001",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 5],
-                [1, 4],
-                [2, 5],
-                [1, 6]
-            ]
-        },
-        "6": {
-            "wall_info": "1100",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 6],
-                [1, 5],
-                [2, 6],
-                [1, 7]
-            ]
-        },
-        "7": {
-            "wall_info": "1000",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 7],
-                [1, 6],
-                [2, 7],
-                [1, 8]
-            ]
-        },
-        "8": {
-            "wall_info": "1001",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 8],
-                [1, 7],
-                [2, 8],
-                [1, 9]
-            ]
-        },
-        "9": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [0, 9],
-                [1, 8],
-                [2, 9]
-            ]
-        }
+        ],
+        "doors": [
+            { "from": [1, 3], "to": [1, 4], "is_open": false },
+            { "from": [2, 5], "to": [2, 6], "is_open": false },
+            { "from": [2, 8], "to": [3, 8], "is_open": false },
+            { "from": [3, 2], "to": [3, 3], "is_open": false },
+            { "from": [4, 4], "to": [5, 4], "is_open": false },
+            { "from": [4, 6], "to": [4, 7], "is_open": false },
+            { "from": [6, 5], "to": [6, 6], "is_open": false },
+            { "from": [6, 7], "to": [6, 8], "is_open": false }
+        ],
+        "damaged_walls": [],
+        "agents": [
+            { "id": 2, "position": [0, 1] },
+            { "id": 3, "position": [0, 5] },
+            { "id": 1, "position": [1, 9] },
+            { "id": 5, "position": [2, 0] },
+            { "id": 0, "position": [7, 0] },
+            { "id": 4, "position": [7, 4] }
+        ],
+        "fire": [
+            [2, 2],
+            [2, 3],
+            [3, 2],
+            [3, 3],
+            [3, 4],
+            [3, 5],
+            [4, 4],
+            [5, 6],
+            [5, 7],
+            [6, 6]
+        ],
+        "smoke": [],
+        "points_of_interest": [
+            { "position": [2, 4], "type": "victim" },
+            { "position": [5, 1], "type": "false_alarm" },
+            { "position": [5, 8], "type": "victim" }
+        ]
     },
-    "2": {
-        "0": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [1, 0],
-                [3, 0],
-                [2, 1]
-            ]
+    {
+        "information": {
+            "rows": 8,
+            "cols": 10,
+            "step": 0,
+            "actual_turn": 0,
+            "total_damage": 0,
+            "victims_rescued": 0,
+            "victims_dead": 0,
+            "win": null
         },
-        "1": {
-            "wall_info": "0100",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [1, 1],
-                [2, 0],
-                [3, 1],
-                [2, 2]
+        "board": [
+            [
+                "0000",
+                "0010",
+                "0010",
+                "0010",
+                "0010",
+                "0010",
+                "0000",
+                "0010",
+                "0010",
+                "0000"
+            ],
+            [
+                "0001",
+                "1100",
+                "1000",
+                "1000",
+                "1000",
+                "1001",
+                "0100",
+                "1000",
+                "1001",
+                "0100"
+            ],
+            [
+                "0001",
+                "0100",
+                "0000",
+                "0011",
+                "0110",
+                "0010",
+                "0010",
+                "0010",
+                "0001",
+                "0100"
+            ],
+            [
+                "0000",
+                "0000",
+                "0000",
+                "1000",
+                "1000",
+                "1000",
+                "1001",
+                "1100",
+                "0001",
+                "0100"
+            ],
+            [
+                "0001",
+                "0110",
+                "0011",
+                "0110",
+                "0000",
+                "0010",
+                "0010",
+                "0010",
+                "0010",
+                "0000"
+            ],
+            [
+                "0001",
+                "1100",
+                "1000",
+                "1000",
+                "0000",
+                "1001",
+                "1100",
+                "1001",
+                "1101",
+                "0100"
+            ],
+            [
+                "0001",
+                "0110",
+                "0010",
+                "0000",
+                "0010",
+                "0010",
+                "0010",
+                "0010",
+                "0011",
+                "0100"
+            ],
+            [
+                "0000",
+                "1000",
+                "1000",
+                "0000",
+                "1000",
+                "1000",
+                "1000",
+                "1000",
+                "1000",
+                "0000"
             ]
-        },
-        "2": {
-            "wall_info": "0000",
-            "door_to": [],
-            "type": "interior",
-            "fire": 2,
-            "poi": null,
-            "connections": [
-                [1, 2],
-                [2, 1],
-                [3, 2],
-                [2, 3]
-            ]
-        },
-        "3": {
-            "wall_info": "0011",
-            "door_to": [],
-            "type": "interior",
-            "fire": 2,
-            "poi": null,
-            "connections": [
-                [1, 3],
-                [2, 2],
-                [3, 3],
-                [2, 4]
-            ]
-        },
-        "4": {
-            "wall_info": "0100",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": true,
-            "connections": [
-                [1, 4],
-                [2, 3],
-                [3, 4],
-                [2, 5]
-            ]
-        },
-        "5": {
-            "wall_info": "0011",
-            "door_to": [[2, 6]],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [1, 5],
-                [2, 4],
-                [3, 5],
-                [2, 6]
-            ]
-        },
-        "6": {
-            "wall_info": "0110",
-            "door_to": [[2, 5]],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [1, 6],
-                [2, 5],
-                [3, 6],
-                [2, 7]
-            ]
-        },
-        "7": {
-            "wall_info": "0010",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [1, 7],
-                [2, 6],
-                [3, 7],
-                [2, 8]
-            ]
-        },
-        "8": {
-            "wall_info": "0011",
-            "door_to": [[3, 8]],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [1, 8],
-                [2, 7],
-                [3, 8],
-                [2, 9]
-            ]
-        },
-        "9": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [1, 9],
-                [2, 8],
-                [3, 9]
-            ]
-        }
-    },
-    "3": {
-        "0": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [2, 0],
-                [4, 0],
-                [3, 1]
-            ]
-        },
-        "1": {
-            "wall_info": "0100",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [2, 1],
-                [3, 0],
-                [4, 1],
-                [3, 2]
-            ]
-        },
-        "2": {
-            "wall_info": "0001",
-            "door_to": [[3, 3]],
-            "type": "interior",
-            "fire": 2,
-            "poi": null,
-            "connections": [
-                [2, 2],
-                [3, 1],
-                [4, 2],
-                [3, 3]
-            ]
-        },
-        "3": {
-            "wall_info": "1100",
-            "door_to": [[3, 2]],
-            "type": "interior",
-            "fire": 2,
-            "poi": null,
-            "connections": [
-                [2, 3],
-                [3, 2],
-                [4, 3],
-                [3, 4]
-            ]
-        },
-        "4": {
-            "wall_info": "1000",
-            "door_to": [],
-            "type": "interior",
-            "fire": 2,
-            "poi": null,
-            "connections": [
-                [2, 4],
-                [3, 3],
-                [4, 4],
-                [3, 5]
-            ]
-        },
-        "5": {
-            "wall_info": "1000",
-            "door_to": [],
-            "type": "interior",
-            "fire": 2,
-            "poi": null,
-            "connections": [
-                [2, 5],
-                [3, 4],
-                [4, 5],
-                [3, 6]
-            ]
-        },
-        "6": {
-            "wall_info": "1001",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [2, 6],
-                [3, 5],
-                [4, 6],
-                [3, 7]
-            ]
-        },
-        "7": {
-            "wall_info": "1100",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [2, 7],
-                [3, 6],
-                [4, 7],
-                [3, 8]
-            ]
-        },
-        "8": {
-            "wall_info": "1001",
-            "door_to": [[2, 8]],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [2, 8],
-                [3, 7],
-                [4, 8],
-                [3, 9]
-            ]
-        },
-        "9": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [2, 9],
-                [3, 8],
-                [4, 9]
-            ]
-        }
-    },
-    "4": {
-        "0": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [3, 0],
-                [5, 0],
-                [4, 1]
-            ]
-        },
-        "1": {
-            "wall_info": "0100",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [3, 1],
-                [4, 0],
-                [5, 1],
-                [4, 2]
-            ]
-        },
-        "2": {
-            "wall_info": "0011",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [3, 2],
-                [4, 1],
-                [5, 2],
-                [4, 3]
-            ]
-        },
-        "3": {
-            "wall_info": "0110",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [3, 3],
-                [4, 2],
-                [5, 3],
-                [4, 4]
-            ]
-        },
-        "4": {
-            "wall_info": "0010",
-            "door_to": [[5, 4]],
-            "type": "interior",
-            "fire": 2,
-            "poi": null,
-            "connections": [
-                [3, 4],
-                [4, 3],
-                [5, 4],
-                [4, 5]
-            ]
-        },
-        "5": {
-            "wall_info": "0010",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [3, 5],
-                [4, 4],
-                [5, 5],
-                [4, 6]
-            ]
-        },
-        "6": {
-            "wall_info": "0011",
-            "door_to": [[4, 7]],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [3, 6],
-                [4, 5],
-                [5, 6],
-                [4, 7]
-            ]
-        },
-        "7": {
-            "wall_info": "0110",
-            "door_to": [[4, 6]],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [3, 7],
-                [4, 6],
-                [5, 7],
-                [4, 8]
-            ]
-        },
-        "8": {
-            "wall_info": "0011",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [3, 8],
-                [4, 7],
-                [5, 8],
-                [4, 9]
-            ]
-        },
-        "9": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [3, 9],
-                [4, 8],
-                [5, 9]
-            ]
-        }
-    },
-    "5": {
-        "0": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [4, 0],
-                [6, 0],
-                [5, 1]
-            ]
-        },
-        "1": {
-            "wall_info": "1100",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": false,
-            "connections": [
-                [4, 1],
-                [5, 0],
-                [6, 1],
-                [5, 2]
-            ]
-        },
-        "2": {
-            "wall_info": "1000",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [4, 2],
-                [5, 1],
-                [6, 2],
-                [5, 3]
-            ]
-        },
-        "3": {
-            "wall_info": "1000",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [4, 3],
-                [5, 2],
-                [6, 3],
-                [5, 4]
-            ]
-        },
-        "4": {
-            "wall_info": "1000",
-            "door_to": [[4, 4]],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [4, 4],
-                [5, 3],
-                [6, 4],
-                [5, 5]
-            ]
-        },
-        "5": {
-            "wall_info": "1001",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [4, 5],
-                [5, 4],
-                [6, 5],
-                [5, 6]
-            ]
-        },
-        "6": {
-            "wall_info": "1100",
-            "door_to": [],
-            "type": "interior",
-            "fire": 2,
-            "poi": null,
-            "connections": [
-                [4, 6],
-                [5, 5],
-                [6, 6],
-                [5, 7]
-            ]
-        },
-        "7": {
-            "wall_info": "1001",
-            "door_to": [],
-            "type": "interior",
-            "fire": 2,
-            "poi": null,
-            "connections": [
-                [4, 7],
-                [5, 6],
-                [6, 7],
-                [5, 8]
-            ]
-        },
-        "8": {
-            "wall_info": "1101",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": true,
-            "connections": [
-                [4, 8],
-                [5, 7],
-                [6, 8],
-                [5, 9]
-            ]
-        },
-        "9": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [4, 9],
-                [5, 8],
-                [6, 9]
-            ]
-        }
-    },
-    "6": {
-        "0": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [5, 0],
-                [7, 0],
-                [6, 1]
-            ]
-        },
-        "1": {
-            "wall_info": "0110",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [5, 1],
-                [6, 0],
-                [7, 1],
-                [6, 2]
-            ]
-        },
-        "2": {
-            "wall_info": "0010",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [5, 2],
-                [6, 1],
-                [7, 2],
-                [6, 3]
-            ]
-        },
-        "3": {
-            "wall_info": "0010",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [5, 3],
-                [6, 2],
-                [7, 3],
-                [6, 4]
-            ]
-        },
-        "4": {
-            "wall_info": "0010",
-            "door_to": [],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [5, 4],
-                [6, 3],
-                [7, 4],
-                [6, 5]
-            ]
-        },
-        "5": {
-            "wall_info": "0011",
-            "door_to": [[6, 6]],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [5, 5],
-                [6, 4],
-                [7, 5],
-                [6, 6]
-            ]
-        },
-        "6": {
-            "wall_info": "0110",
-            "door_to": [[6, 5]],
-            "type": "interior",
-            "fire": 2,
-            "poi": null,
-            "connections": [
-                [5, 6],
-                [6, 5],
-                [7, 6],
-                [6, 7]
-            ]
-        },
-        "7": {
-            "wall_info": "0011",
-            "door_to": [[6, 8]],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [5, 7],
-                [6, 6],
-                [7, 7],
-                [6, 8]
-            ]
-        },
-        "8": {
-            "wall_info": "0111",
-            "door_to": [[6, 7]],
-            "type": "interior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [5, 8],
-                [6, 7],
-                [7, 8],
-                [6, 9]
-            ]
-        },
-        "9": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [5, 9],
-                [6, 8],
-                [7, 9]
-            ]
-        }
-    },
-    "7": {
-        "0": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [6, 0],
-                [7, 1]
-            ]
-        },
-        "1": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [6, 1],
-                [7, 0],
-                [7, 2]
-            ]
-        },
-        "2": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [6, 2],
-                [7, 1],
-                [7, 3]
-            ]
-        },
-        "3": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [6, 3],
-                [7, 2],
-                [7, 4]
-            ]
-        },
-        "4": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [6, 4],
-                [7, 3],
-                [7, 5]
-            ]
-        },
-        "5": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [6, 5],
-                [7, 4],
-                [7, 6]
-            ]
-        },
-        "6": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [6, 6],
-                [7, 5],
-                [7, 7]
-            ]
-        },
-        "7": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [6, 7],
-                [7, 6],
-                [7, 8]
-            ]
-        },
-        "8": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [6, 8],
-                [7, 7],
-                [7, 9]
-            ]
-        },
-        "9": {
-            "wall_info": "",
-            "door_to": [],
-            "type": "exterior",
-            "fire": 0,
-            "poi": null,
-            "connections": [
-                [6, 9],
-                [7, 8]
-            ]
-        }
-    }
+        ],
+        "doors": [
+            { "from": [1, 3], "to": [1, 4], "is_open": false },
+            { "from": [2, 5], "to": [2, 6], "is_open": false },
+            { "from": [2, 8], "to": [3, 8], "is_open": false },
+            { "from": [3, 2], "to": [3, 3], "is_open": false },
+            { "from": [4, 4], "to": [5, 4], "is_open": false },
+            { "from": [4, 6], "to": [4, 7], "is_open": false },
+            { "from": [6, 5], "to": [6, 6], "is_open": false },
+            { "from": [6, 7], "to": [6, 8], "is_open": false }
+        ],
+        "damaged_walls": [],
+        "agents": [
+            { "id": 2, "position": [0, 1] },
+            { "id": 3, "position": [0, 5] },
+            { "id": 1, "position": [1, 9] },
+            { "id": 5, "position": [2, 0] },
+            { "id": 0, "position": [7, 1] },
+            { "id": 4, "position": [7, 4] }
+        ],
+        "fire": [
+            [2, 2],
+            [2, 3],
+            [3, 2],
+            [3, 3],
+            [3, 4],
+            [3, 5],
+            [4, 4],
+            [5, 6],
+            [5, 7],
+            [6, 6]
+        ],
+        "smoke": [],
+        "points_of_interest": [
+            { "position": [2, 4], "type": "victim" },
+            { "position": [5, 1], "type": "false_alarm" },
+            { "position": [5, 8], "type": "victim" }
+        ]
+    }]
 }
